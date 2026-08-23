@@ -6,7 +6,7 @@ import { Bell, ArrowRight, Maximize2, Heart, MessageSquare, Trophy, SlidersHoriz
 import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
-  const user = useAppStore((state) => state.user);
+  const userProfile = useAppStore((state) => state.userProfile);
   const navigate = useNavigate();
 
   return (
@@ -16,8 +16,8 @@ export default function Dashboard() {
         {/* Header */}
         <header className="flex justify-between items-center mb-6 mt-2">
           <div className="flex items-center space-x-3">
-            <img src={user?.avatar || 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=150&q=80'} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
-            <h1 className="text-lg font-medium">Hola, {user?.name || 'Alex'}</h1>
+            <img src={userProfile?.avatar_url || 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=150&q=80'} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
+            <h1 className="text-lg font-medium">Hola, {userProfile?.username || 'Atleta'}</h1>
           </div>
           <button className="relative p-2 text-gray-300 hover:text-white">
             <Bell size={24} />

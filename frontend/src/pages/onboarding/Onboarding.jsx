@@ -97,6 +97,8 @@ export default function Onboarding() {
             gym_id: typeof data.gym === 'string' ? null : data.gym,
             avatar_url: avatarUrl
           });
+          // Recargar el perfil para que el Dashboard lo tenga inmediatamente
+          await useAppStore.getState().fetchUserProfile(user.id);
         }
         
         navigate('/');

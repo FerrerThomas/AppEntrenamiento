@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Profile() {
   const user = useAppStore((state) => state.user);
+  const userProfile = useAppStore((state) => state.userProfile);
   const logout = useAppStore((state) => state.logout);
   const navigate = useNavigate();
 
@@ -22,8 +23,8 @@ export default function Profile() {
       </header>
 
       <div className="flex flex-col items-center mb-8">
-        <img src={user?.avatar || 'https://i.pravatar.cc/150'} alt="Avatar" className="w-24 h-24 rounded-full border-4 border-surface-2 mb-4" />
-        <h2 className="text-2xl font-bold">{user?.name || 'Atleta'}</h2>
+        <img src={userProfile?.avatar_url || 'https://i.pravatar.cc/150'} alt="Avatar" className="w-24 h-24 rounded-full border-4 border-surface-2 mb-4 object-cover" />
+        <h2 className="text-2xl font-bold">{userProfile?.username || 'Atleta'}</h2>
         <p className="text-gray-400">{user?.email}</p>
       </div>
 

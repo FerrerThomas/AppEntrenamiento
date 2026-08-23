@@ -4,12 +4,26 @@ import { supabase } from '../lib/supabase';
 export const useAppStore = create((set, get) => ({
   user: null,
   session: null,
+  userProfile: null,
   authInitialized: false,
+
+  fetchUserProfile: async (userId) => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
+      if (!error && data) {
+        set({ userProfile: data });
+      }
+    } catch (e) {
+      console.error('Error fetching user profile:', e);
+    }
+  },
 
   initializeAuth: () => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       set({ session, user: session?.user ?? null, authInitialized: true });
+      if (session?.user) get().fetchUserProfile(session.user.id);
     }).catch(() => {
       set({ authInitialized: true });
     });
@@ -17,6 +31,7 @@ export const useAppStore = create((set, get) => ({
     // Listen for auth changes
     supabase.auth.onAuthStateChange((_event, session) => {
       set({ session, user: session?.user ?? null, authInitialized: true });
+      if (session?.user) get().fetchUserProfile(session.user.id);
     });
   },
 
@@ -40,7 +55,7 @@ export const useAppStore = create((set, get) => ({
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ user: null, session: null });
+    set({ user: null, session: null, userProfile: null });
   },
 
   onboardingData: {
