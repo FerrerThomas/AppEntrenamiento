@@ -60,7 +60,7 @@ export default function Onboarding() {
                   <div className="flex-1 min-w-0">
                     <Input 
                       placeholder="Tu nombre" 
-                      className="bg-[#131313] border-[#1c1b1b] py-4 h-full"
+                      className="bg-[#131313] border-[#1c1b1b] h-16 rounded-2xl text-base"
                       value={data.name || ''}
                       onChange={(e) => setOnboardingData({ name: e.target.value })}
                     />
@@ -79,7 +79,7 @@ export default function Onboarding() {
                 <Input 
                   type="date"
                   placeholder="dd/mm/aaaa" 
-                  className="bg-[#131313] border-[#1c1b1b] py-4 [color-scheme:dark]"
+                  className="bg-[#131313] border-[#1c1b1b] h-16 rounded-2xl text-base [color-scheme:dark]"
                   rightIcon={Calendar}
                   value={data.birthDate || ''}
                   onChange={(e) => setOnboardingData({ birthDate: e.target.value })}
