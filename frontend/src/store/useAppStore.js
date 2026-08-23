@@ -67,11 +67,38 @@ export const useAppStore = create((set, get) => ({
   },
   setOnboardingData: (data) => set((state) => ({ onboardingData: { ...state.onboardingData, ...data } })),
 
-  workouts: [
-    { id: 1, title: 'Pecho y Tríceps', duration: '45 min', exercises: 5, type: 'Fuerza' },
-    { id: 2, title: 'Pierna Completa', duration: '60 min', exercises: 6, type: 'Fuerza' },
-    { id: 3, title: 'HIIT Cardio', duration: '20 min', exercises: 4, type: 'Cardio' },
-  ],
+  workouts: [],
+  fetchWorkouts: async () => {
+    const user = get().user;
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('routines')
+        .select(`
+          id, title, type, duration_minutes,
+          routine_exercises (
+            id, sets, reps, order_index,
+            exercises (id, name, muscle_group)
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (!error && data) {
+        const formatted = data.map(r => ({
+          id: r.id,
+          title: r.title,
+          duration: `${r.duration_minutes || 45} min`,
+          exercisesCount: r.routine_exercises?.length || 0,
+          type: r.type || 'Fuerza',
+          routine_exercises: r.routine_exercises
+        }));
+        set({ workouts: formatted });
+      }
+    } catch (e) {
+      console.error('Error fetching workouts:', e);
+    }
+  },
 
   activeWorkout: null,
   startWorkout: (workout) => set({ activeWorkout: { ...workout, startTime: Date.now() } }),
