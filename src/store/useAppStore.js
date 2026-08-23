@@ -6,6 +6,7 @@ export const useAppStore = create((set, get) => ({
   session: null,
   userProfile: null,
   authInitialized: false,
+  profileLoaded: false,
 
   fetchUserProfile: async (userId) => {
     if (!userId) return;
@@ -16,6 +17,8 @@ export const useAppStore = create((set, get) => ({
       }
     } catch (e) {
       console.error('Error fetching user profile:', e);
+    } finally {
+      set({ profileLoaded: true });
     }
   },
 
@@ -24,14 +27,16 @@ export const useAppStore = create((set, get) => ({
     supabase.auth.getSession().then(({ data: { session } }) => {
       set({ session, user: session?.user ?? null, authInitialized: true });
       if (session?.user) get().fetchUserProfile(session.user.id);
+      else set({ profileLoaded: true });
     }).catch(() => {
-      set({ authInitialized: true });
+      set({ authInitialized: true, profileLoaded: true });
     });
 
     // Listen for auth changes
     supabase.auth.onAuthStateChange((_event, session) => {
       set({ session, user: session?.user ?? null, authInitialized: true });
       if (session?.user) get().fetchUserProfile(session.user.id);
+      else set({ profileLoaded: true, userProfile: null });
     });
   },
 
@@ -55,7 +60,7 @@ export const useAppStore = create((set, get) => ({
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ user: null, session: null, userProfile: null });
+    set({ user: null, session: null, userProfile: null, profileLoaded: false });
   },
 
   onboardingData: {
@@ -131,10 +136,111 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  currentPRs: [],
+  getCurrentPRs: async () => {
+    const user = get().user;
+    if (!user) return [];
+    try {
+      const { data, error } = await supabase.rpc('get_user_prs', { p_user_id: user.id });
+      if (error) throw error;
+      set({ currentPRs: data || [] });
+      return data || [];
+    } catch (e) {
+      console.error('Error fetching PRs:', e);
+      return [];
+    }
+  },
+
+  // --- Rankings ---
+  currentRanking: [],
+  isRankingLoading: false,
+
+  fetchVolumeRanking: async (timeframe, gymId = null) => {
+    set({ isRankingLoading: true });
+    try {
+      const { data, error } = await supabase.rpc('get_volume_ranking', {
+        p_timeframe: timeframe,
+        p_gym_id: gymId
+      });
+      if (error) throw error;
+      
+      // Enriquecer con datos del usuario (nombre, avatar)
+      if (data && data.length > 0) {
+        const userIds = data.map(d => d.user_id);
+        const { data: usersData } = await supabase.from('users').select('id, username, avatar_url').in('id', userIds);
+        
+        const enriched = data.map(r => {
+          const u = usersData?.find(u => u.id === r.user_id);
+          return { ...r, username: u?.username || 'Usuario', avatar_url: u?.avatar_url };
+        });
+        set({ currentRanking: enriched, isRankingLoading: false });
+      } else {
+        set({ currentRanking: [], isRankingLoading: false });
+      }
+    } catch (e) {
+      console.error('Error fetching volume ranking:', e);
+      set({ currentRanking: [], isRankingLoading: false });
+    }
+  },
+
+  fetchExerciseRanking: async (exerciseId, metric, timeframe, gymId = null) => {
+    set({ isRankingLoading: true });
+    try {
+      const { data, error } = await supabase.rpc('get_exercise_ranking', {
+        p_exercise_id: exerciseId,
+        p_metric: metric,
+        p_timeframe: timeframe,
+        p_gym_id: gymId
+      });
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const userIds = data.map(d => d.user_id);
+        const { data: usersData } = await supabase.from('users').select('id, username, avatar_url').in('id', userIds);
+        
+        const enriched = data.map(r => {
+          const u = usersData?.find(u => u.id === r.user_id);
+          return { ...r, username: u?.username || 'Usuario', avatar_url: u?.avatar_url };
+        });
+        set({ currentRanking: enriched, isRankingLoading: false });
+      } else {
+        set({ currentRanking: [], isRankingLoading: false });
+      }
+    } catch (e) {
+      console.error('Error fetching exercise ranking:', e);
+      set({ currentRanking: [], isRankingLoading: false });
+    }
+  },
+
+  dbExercises: [],
+  fetchDbExercises: async () => {
+    if (get().dbExercises.length > 0) return; // Already fetched
+    try {
+      const { data, error } = await supabase.from('exercises').select('*').order('name');
+      if (error) throw error;
+      set({ dbExercises: data || [] });
+    } catch (e) {
+      console.error('Error fetching exercises:', e);
+    }
+  },
+
   activeWorkout: null,
   activeWorkoutSets: null,
+  lastCompletedWorkout: null,
+  
   startWorkout: (workout) => set({ activeWorkout: { ...workout, startTime: Date.now() }, activeWorkoutSets: null }),
-  finishWorkout: () => set({ activeWorkout: null, activeWorkoutSets: null }),
+  
+  finishWorkout: (summaryData) => set({ 
+    // Mantenemos activeWorkout para que la pantalla anterior no explote al hacer la transición
+    lastCompletedWorkout: summaryData 
+  }),
+  
+  clearWorkout: () => set({
+    activeWorkout: null,
+    activeWorkoutSets: null,
+    lastCompletedWorkout: null
+  }),
+  
   cancelWorkout: () => set({ activeWorkout: null, activeWorkoutSets: null }),
   setActiveWorkoutSets: (setsOrUpdater) => set((state) => ({
     activeWorkoutSets: typeof setsOrUpdater === 'function' 

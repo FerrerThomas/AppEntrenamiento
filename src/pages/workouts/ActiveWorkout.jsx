@@ -10,14 +10,17 @@ export default function ActiveWorkout() {
   const activeWorkout = useAppStore((state) => state.activeWorkout);
   const finishWorkout = useAppStore((state) => state.finishWorkout);
   const getPreviousWorkout = useAppStore((state) => state.getPreviousWorkout);
-  
+  const getCurrentPRs = useAppStore((state) => state.getCurrentPRs);
+  const currentPRs = useAppStore((state) => state.currentPRs);
+
   const setsData = useAppStore((state) => state.activeWorkoutSets) || {};
   const setSetsData = useAppStore((state) => state.setActiveWorkoutSets);
 
   const [previousData, setPreviousData] = useState({}); // Para almacenar la columna "ANTERIOR"
+  const [localPRs, setLocalPRs] = useState({}); // PRs superados en la sesión actual para no repetir alertas
   const [isFinishing, setIsFinishing] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  
+
   // Toast notification state
   const [toast, setToast] = useState(null);
 
@@ -30,25 +33,30 @@ export default function ActiveWorkout() {
     const loadInitialData = async () => {
       const initialData = {};
       const prevData = {};
-      
+
       const isAlreadyInitialized = Object.keys(setsData).length > 0;
+
+      // Cargar PRs del usuario para compararlos en vivo
+      if (!isAlreadyInitialized) {
+        await getCurrentPRs();
+      }
 
       // Cargar historial en paralelo para todos los ejercicios
       const promises = activeWorkout.routine_exercises?.map(async (rx) => {
         if (!isAlreadyInitialized) {
           const setsArray = [];
           const numSets = rx.sets && Array.isArray(rx.sets) ? rx.sets.length : (rx.sets || 3);
-          
+
           for (let i = 0; i < numSets; i++) {
             const target = Array.isArray(rx.sets) ? rx.sets[i] : null;
-            setsArray.push({ 
-              id: Math.random().toString(), 
-              kg: '', 
-              reps: '', 
+            setsArray.push({
+              id: Math.random().toString(),
+              kg: '',
+              reps: '',
               targetReps: target ? target.target_reps : (rx.reps || 10),
               targetKg: target ? target.target_weight_kg : 0,
-              done: false, 
-              isPR: false 
+              done: false,
+              isPR: false
             });
           }
           initialData[rx.id] = setsArray;
@@ -85,7 +93,7 @@ export default function ActiveWorkout() {
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
-    
+
     if (h > 0) return `${h}h ${m}m`;
     if (m > 0) return `${m}min ${s}s`;
     return `${s}s`;
@@ -100,12 +108,12 @@ export default function ActiveWorkout() {
     });
   };
 
-  const toggleSet = (rxId, setId, exerciseName, imgUrl) => {
+  const toggleSet = (rxId, setId, exerciseId, exerciseName, imgUrl) => {
     setSetsData(prev => {
       const exSets = [...prev[rxId]];
       const setIdx = exSets.findIndex(s => s.id === setId);
       const isNowDone = !exSets[setIdx].done;
-      
+
       let newKg = exSets[setIdx].kg;
       let newReps = exSets[setIdx].reps;
 
@@ -114,23 +122,49 @@ export default function ActiveWorkout() {
         if (newKg === '') newKg = exSets[setIdx].targetKg || 0;
         if (newReps === '') newReps = exSets[setIdx].targetReps || 10;
       }
-      
-      // Simulate PR logic: if done and kg > 0, make it a PR 30% of the time for demonstration
-      const isPR = isNowDone && newKg > 0 && Math.random() > 0.7;
-      
-      exSets[setIdx] = { 
-        ...exSets[setIdx], 
+
+      const weightFloat = parseFloat(newKg) || 0;
+      const repsInt = parseInt(newReps) || 0;
+      const setVolume = weightFloat * repsInt;
+      const set1RM = weightFloat * (1.0 + (repsInt / 30.0));
+
+      let isPR = false;
+      let prMessage = '';
+
+      if (isNowDone && weightFloat > 0) {
+        // Encontrar PR anterior
+        const prevPR = currentPRs.find(pr => pr.exercise_id === exerciseId);
+        const maxVol = prevPR ? parseFloat(prevPR.max_volume) : 0;
+        const max1rm = prevPR ? parseFloat(prevPR.max_1rm) : 0;
+
+        // Verificar si rompió el récord de Volumen
+        const localBestVol = localPRs[`${exerciseId}_vol`] || 0;
+        const localBest1rm = localPRs[`${exerciseId}_1rm`] || 0;
+
+        if (setVolume > maxVol && setVolume > localBestVol) {
+          isPR = true;
+          prMessage = `¡Nuevo récord de volumen! ${setVolume} kg`;
+          setLocalPRs(l => ({ ...l, [`${exerciseId}_vol`]: setVolume }));
+        }
+        else if (set1RM > max1rm && set1RM > localBest1rm) {
+          isPR = true;
+          prMessage = `¡Nuevo 1RM estimado! ${set1RM.toFixed(1)} kg`;
+          setLocalPRs(l => ({ ...l, [`${exerciseId}_1rm`]: set1RM }));
+        }
+      }
+
+      exSets[setIdx] = {
+        ...exSets[setIdx],
         kg: newKg,
         reps: newReps,
-        done: isNowDone, 
-        isPR 
+        done: isNowDone,
+        isPR
       };
-      
+
       if (isNowDone && isPR) {
-        const volume = (parseFloat(newKg) || 0) * (parseInt(newReps) || 0);
-        showToast(exerciseName, `Mejor volumen (serie) - ${volume} kg`, imgUrl);
+        showToast(exerciseName, prMessage, imgUrl);
       }
-      
+
       return { ...prev, [rxId]: exSets };
     });
   };
@@ -139,13 +173,13 @@ export default function ActiveWorkout() {
     setSetsData(prev => {
       const exSets = [...prev[rxId]];
       const newSet = { id: Math.random().toString(), kg: '', reps: '', done: false, isPR: false };
-      
+
       if (exSets.length > 0) {
         const lastSet = exSets[exSets.length - 1];
         newSet.kg = lastSet.kg;
         newSet.reps = lastSet.reps;
       }
-      
+
       exSets.push(newSet);
       return { ...prev, [rxId]: exSets };
     });
@@ -159,21 +193,26 @@ export default function ActiveWorkout() {
   const handleFinishWorkout = async () => {
     if (!user) return;
     setIsFinishing(true);
-    
+
     try {
       let totalVolume = 0;
+      let prsBroken = 0;
       const setsToInsert = [];
+      const exercisesDone = new Set();
 
       Object.keys(setsData).forEach(rxId => {
         const rx = exercises.find(e => e.id === rxId);
         if (!rx) return;
-        
+
         setsData[rxId].forEach(set => {
           if (set.done) {
+            exercisesDone.add(rx.exercises.name);
             const kg = parseFloat(set.kg) || 0;
             const reps = parseInt(set.reps) || 0;
             totalVolume += kg * reps;
-            
+
+            if (set.isPR) prsBroken++;
+
             setsToInsert.push({
               exercise_id: rx.exercises.id,
               weight_kg: kg,
@@ -207,8 +246,18 @@ export default function ActiveWorkout() {
         if (setsError) throw setsError;
       }
 
-      finishWorkout();
-      navigate('/workouts/summary'); 
+      // Preparamos datos para la pantalla de resumen
+      const summaryData = {
+        title: activeWorkout.title,
+        duration: formatTime(elapsed),
+        volume: totalVolume,
+        prsCount: prsBroken,
+        exercisesCount: exercisesDone.size,
+        date: new Date().toLocaleDateString()
+      };
+
+      finishWorkout(summaryData);
+      navigate('/workouts/summary');
 
     } catch (error) {
       console.error("Error al guardar sesión:", error);
@@ -258,7 +307,7 @@ export default function ActiveWorkout() {
         </div>
         <div className="flex items-center space-x-4">
           <Timer size={24} className="text-gray-400" />
-          <button 
+          <button
             onClick={handleFinishWorkout}
             disabled={isFinishing}
             className="px-6 py-2 rounded-full bg-primary text-surface-0 font-bold text-sm"
@@ -291,7 +340,7 @@ export default function ActiveWorkout() {
       <div className="flex-1 pb-24">
         {exercises.map((rx, exIdx) => {
           const exSets = setsData[rx.id] || [];
-          
+
           return (
             <div key={rx.id} className="pt-6 pb-2 border-b border-[#1c1c1e]">
               <div className="px-4">
@@ -309,7 +358,7 @@ export default function ActiveWorkout() {
                     <MoreVertical size={20} />
                   </button>
                 </div>
-                
+
                 {/* Subtítulos */}
                 <p className="text-gray-500 text-sm mb-3">Agregar notas aquí...</p>
                 <p className="text-primary text-sm font-medium flex items-center mb-4">
@@ -323,66 +372,66 @@ export default function ActiveWorkout() {
                     <div className="flex-1 text-center">ANTERIOR</div>
                     <div className="flex-1 text-center">KG</div>
                     <div className="flex-1 text-center">REPS</div>
-                    <div className="w-12 flex justify-center"><Check size={16}/></div>
+                    <div className="w-12 flex justify-center"><Check size={16} /></div>
                   </div>
-                  
+
                   {exSets.map((set, setIndex) => {
                     const prevSet = previousData[rx.id] && previousData[rx.id][setIndex];
                     const prevText = prevSet ? `${prevSet.weight_kg}kg x ${prevSet.reps}` : '-';
 
                     return (
-                    <div 
-                      key={set.id} 
-                      className={`flex items-center py-1 transition-colors ${set.done ? 'bg-primary/20 -mx-4 px-4' : ''}`}
-                    >
-                      <div className="w-12 flex justify-center">
-                        {set.isPR ? (
-                          <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center text-yellow-500 text-lg">🏆</div>
-                        ) : (
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${set.done ? 'bg-transparent text-primary' : 'bg-surface-2 text-gray-400'}`}>
-                            {setIndex + 1}
-                          </div>
-                        )}
+                      <div
+                        key={set.id}
+                        className={`flex items-center py-1 transition-colors ${set.done ? 'bg-primary/20 -mx-4 px-4' : ''}`}
+                      >
+                        <div className="w-12 flex justify-center">
+                          {set.isPR ? (
+                            <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center text-yellow-500 text-lg">🏆</div>
+                          ) : (
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${set.done ? 'bg-transparent text-primary' : 'bg-surface-2 text-gray-400'}`}>
+                              {setIndex + 1}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 text-center text-gray-500 font-medium text-sm">
+                          {prevText}
+                        </div>
+
+                        <div className="flex-1 flex justify-center px-1">
+                          <input
+                            type="number"
+                            placeholder="-"
+                            value={set.kg}
+                            onChange={(e) => updateSet(rx.id, set.id, 'kg', e.target.value)}
+                            className={`w-full h-9 rounded-lg text-center font-bold focus:outline-none placeholder-gray-600 ${set.done ? 'bg-transparent text-white' : 'bg-[#1c1c1e] text-white'}`}
+                          />
+                        </div>
+
+                        <div className="flex-1 flex justify-center px-1">
+                          <input
+                            type="number"
+                            placeholder="-"
+                            value={set.reps}
+                            onChange={(e) => updateSet(rx.id, set.id, 'reps', e.target.value)}
+                            className={`w-full h-9 rounded-lg text-center font-bold focus:outline-none placeholder-gray-600 ${set.done ? 'bg-transparent text-white' : 'bg-[#1c1c1e] text-white'}`}
+                          />
+                        </div>
+
+                        <div className="w-12 flex justify-center">
+                          <button
+                            onClick={() => toggleSet(rx.id, set.id, rx.exercises.id, rx.exercises.name, rx.exercises.gif_url)}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${set.done ? 'bg-primary text-surface-0' : 'bg-[#1c1c1e] text-gray-500'}`}
+                          >
+                            <Check size={18} strokeWidth={3} className={set.done ? 'opacity-100' : 'opacity-0'} />
+                          </button>
+                        </div>
                       </div>
-                      
-                      <div className="flex-1 text-center text-gray-500 font-medium text-sm">
-                        {prevText}
-                      </div>
-                      
-                      <div className="flex-1 flex justify-center px-1">
-                        <input
-                          type="number"
-                          placeholder="-"
-                          value={set.kg}
-                          onChange={(e) => updateSet(rx.id, set.id, 'kg', e.target.value)}
-                          className={`w-full h-9 rounded-lg text-center font-bold focus:outline-none placeholder-gray-600 ${set.done ? 'bg-transparent text-white' : 'bg-[#1c1c1e] text-white'}`}
-                        />
-                      </div>
-                      
-                      <div className="flex-1 flex justify-center px-1">
-                        <input
-                          type="number"
-                          placeholder="-"
-                          value={set.reps}
-                          onChange={(e) => updateSet(rx.id, set.id, 'reps', e.target.value)}
-                          className={`w-full h-9 rounded-lg text-center font-bold focus:outline-none placeholder-gray-600 ${set.done ? 'bg-transparent text-white' : 'bg-[#1c1c1e] text-white'}`}
-                        />
-                      </div>
-                      
-                      <div className="w-12 flex justify-center">
-                        <button 
-                          onClick={() => toggleSet(rx.id, set.id, rx.exercises.name, rx.exercises.gif_url)}
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${set.done ? 'bg-primary text-surface-0' : 'bg-[#1c1c1e] text-gray-500'}`}
-                        >
-                          <Check size={18} strokeWidth={3} className={set.done ? 'opacity-100' : 'opacity-0'} />
-                        </button>
-                      </div>
-                    </div>
                     );
                   })}
                 </div>
 
-                <button 
+                <button
                   onClick={() => addSet(rx.id)}
                   className="w-full bg-[#1c1c1e] hover:bg-[#2c2c2e] transition-colors rounded-xl py-3 text-[15px] font-medium text-white flex justify-center items-center"
                 >

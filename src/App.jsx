@@ -21,11 +21,20 @@ import { useAppStore } from './store/useAppStore';
 function AnimatedRoutes() {
   const location = useLocation();
   const user = useAppStore((state) => state.user);
+  const userProfile = useAppStore((state) => state.userProfile);
   const authInitialized = useAppStore((state) => state.authInitialized);
+  const profileLoaded = useAppStore((state) => state.profileLoaded);
 
-  if (!authInitialized) {
+  if (!authInitialized || (user && !profileLoaded)) {
     return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-primary font-bold">Cargando...</div>;
   }
+
+  // Wrapper para forzar Onboarding si el usuario no tiene nombre
+  const requireProfile = (element) => {
+    if (!user) return <Navigate to="/login" />;
+    if (!userProfile?.username) return <Navigate to="/onboarding/1" />;
+    return element;
+  };
 
   return (
     <AnimatePresence mode="wait">
@@ -35,16 +44,18 @@ function AnimatedRoutes() {
         <Route path="/onboarding/:step" element={user ? <Onboarding /> : <Navigate to="/login" />} />
         
         {/* Workouts specific (No Bottom Nav or Custom Nav) */}
-        <Route path="/workouts/create" element={user ? <WorkoutCreator /> : <Navigate to="/login" />} />
-        <Route path="/workouts/active" element={user ? <ActiveWorkout /> : <Navigate to="/login" />} />
-        <Route path="/workouts/summary" element={user ? <WorkoutSummary /> : <Navigate to="/login" />} />
+        <Route element={<AppLayout showNav={false} />}>
+          <Route path="/workouts/create" element={requireProfile(<WorkoutCreator />)} />
+          <Route path="/workouts/active" element={requireProfile(<ActiveWorkout />)} />
+          <Route path="/workouts/summary" element={requireProfile(<WorkoutSummary />)} />
+        </Route>
 
         {/* Main App (With Bottom Nav) */}
         <Route element={<AppLayout showNav={true} />}>
-          <Route path="/" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-          <Route path="/workouts" element={user ? <WorkoutHub /> : <Navigate to="/login" />} />
-          <Route path="/rankings" element={user ? <Rankings /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
+          <Route path="/" element={requireProfile(<Dashboard />)} />
+          <Route path="/workouts" element={requireProfile(<WorkoutHub />)} />
+          <Route path="/rankings" element={requireProfile(<Rankings />)} />
+          <Route path="/profile" element={requireProfile(<Profile />)} />
         </Route>
       </Routes>
     </AnimatePresence>

@@ -6,24 +6,23 @@ import { Bell, ArrowRight, Maximize2, Heart, MessageSquare, Trophy, SlidersHoriz
 import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
+  const currentWorkout = useAppStore((state) => state.activeWorkout);
   const userProfile = useAppStore((state) => state.userProfile);
   const navigate = useNavigate();
 
   return (
-    <div className="p-4 pb-32 bg-surface-0 min-h-screen font-sans text-white flex flex-col items-center">
-      <div className="w-full max-w-md">
-        
-        {/* Header */}
-        <header className="flex justify-between items-center mb-6 mt-2">
-          <div className="flex items-center space-x-3">
-            <img src={userProfile?.avatar_url || 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=150&q=80'} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
-            <h1 className="text-lg font-medium">Hola, {userProfile?.username || 'Atleta'}</h1>
-          </div>
-          <button className="relative p-2 text-gray-300 hover:text-white">
-            <Bell size={24} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border border-surface-0"></span>
-          </button>
-        </header>
+    <div className="p-6 pb-32 min-h-screen bg-surface-0 flex flex-col max-w-md mx-auto">
+      
+      {/* Header */}
+      <header className="flex justify-between items-center mb-8 pt-2">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-white">Hola, {userProfile?.username?.split(' ')[0] || 'Atleta'}</h1>
+          <p className="text-gray-400 font-medium">Listo para aplastar tus metas?</p>
+        </div>
+        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#2a2a2a]">
+          <img src={userProfile?.avatar_url || "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=150&q=80"} alt="Profile" className="w-full h-full object-cover" />
+        </div>
+      </header>
 
         {/* Amigos entrenando bar */}
         <div className="bg-surface-1 border border-surface-2 rounded-xl p-3 flex items-center justify-between mb-6">

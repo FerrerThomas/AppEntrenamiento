@@ -1,10 +1,12 @@
 import React from 'react';
 import { Home, Dumbbell, Trophy, User } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAppStore } from '../../store/useAppStore';
 
 export default function BottomNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
+  const userProfile = useAppStore(state => state.userProfile);
 
   const navItems = [
     { id: 'dashboard', path: '/', icon: Home, label: 'Inicio' },
@@ -25,8 +27,12 @@ export default function BottomNavigation() {
               onClick={() => navigate(item.path)}
               className={`flex flex-col items-center justify-center w-14 h-12 transition-colors ${isActive ? 'text-surface-0' : 'text-gray-400 hover:text-white'}`}
             >
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${isActive ? 'bg-primary shadow-glow' : ''}`}>
-                <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full overflow-hidden ${isActive ? 'bg-primary shadow-glow' : ''}`}>
+                {item.id === 'profile' && userProfile?.avatar_url ? (
+                  <img src={userProfile.avatar_url} alt="Profile" className={`w-full h-full object-cover ${isActive ? 'border-[3px] border-primary' : ''}`} />
+                ) : (
+                  <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                )}
               </div>
             </button>
           );
