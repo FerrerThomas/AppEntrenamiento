@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 
@@ -21,6 +21,11 @@ import { useAppStore } from './store/useAppStore';
 function AnimatedRoutes() {
   const location = useLocation();
   const user = useAppStore((state) => state.user);
+  const authInitialized = useAppStore((state) => state.authInitialized);
+
+  if (!authInitialized) {
+    return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-primary font-bold">Cargando...</div>;
+  }
 
   return (
     <AnimatePresence mode="wait">
@@ -47,6 +52,12 @@ function AnimatedRoutes() {
 }
 
 function App() {
+  const initializeAuth = useAppStore((state) => state.initializeAuth);
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
   return (
     <BrowserRouter>
       <AnimatedRoutes />

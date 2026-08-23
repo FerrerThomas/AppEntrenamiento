@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -12,9 +13,100 @@ export default function Onboarding() {
   const setOnboardingData = useAppStore((state) => state.setOnboardingData);
   const data = useAppStore((state) => state.onboardingData);
 
-  const handleNext = () => {
-    if (currentStep < 3) navigate(`/onboarding/${currentStep + 1}`);
-    else navigate('/');
+  const [gyms, setGyms] = useState([]);
+  const [loadingGyms, setLoadingGyms] = useState(false);
+  
+  const fileInputRef = useRef(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setOnboardingData({ avatarFile: file });
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+
+  useEffect(() => {
+    if (currentStep === 3) {
+      const fetchGyms = async () => {
+        setLoadingGyms(true);
+        try {
+          const { data: dbGyms, error } = await supabase.from('gyms').select('*');
+          if (error) throw error;
+          if (dbGyms && dbGyms.length > 0) {
+            // Adaptar los nombres de columnas de DB a la vista
+            const mapped = dbGyms.map(g => ({
+              id: g.id,
+              name: g.name,
+              loc: g.address || '',
+              icon: Dumbbell,
+              logo: g.logo_url
+            }));
+            setGyms(mapped);
+          } else {
+            throw new Error("No gyms found");
+          }
+        } catch (err) {
+          // Fallback a mocks si la DB aún no está creada
+          setGyms([
+            { id: 1, name: 'Titanium Fitness', loc: 'Madrid Centro', icon: Dumbbell },
+            { id: 2, name: 'Iron Forge Gym', loc: 'Barcelona Norte', icon: Activity },
+            { id: 3, name: 'Elite Performance Center', loc: 'Valencia Este', icon: Dumbbell },
+          ]);
+        } finally {
+          setLoadingGyms(false);
+        }
+      };
+      fetchGyms();
+    }
+  }, [currentStep]);
+
+  const handleNext = async () => {
+    if (currentStep < 3) {
+      navigate(`/onboarding/${currentStep + 1}`);
+    } else {
+      setIsSubmitting(true);
+      try {
+        const user = useAppStore.getState().user;
+        let avatarUrl = null;
+
+        // Subir imagen a Supabase Storage si existe
+        if (data.avatarFile && user?.id) {
+          const fileExt = data.avatarFile.name.split('.').pop();
+          const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, data.avatarFile, { upsert: true });
+          
+          if (!uploadError) {
+            const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+            avatarUrl = publicUrlData.publicUrl;
+          }
+        }
+
+        // Guardar perfil en base de datos
+        if (user?.id) {
+          await supabase.from('users').upsert({
+            id: user.id,
+            username: data.name,
+            birth_date: data.birthDate || null,
+            weight_kg: data.weight,
+            height_cm: data.height,
+            gym_id: typeof data.gym === 'string' ? null : data.gym,
+            avatar_url: avatarUrl
+          });
+        }
+        
+        navigate('/');
+      } catch (error) {
+        console.error("Error al guardar perfil:", error);
+        navigate('/'); // Fallback
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
   };
   
   const handleBack = () => {
@@ -66,8 +158,22 @@ export default function Onboarding() {
                     />
                   </div>
                   <div className="flex flex-col items-center shrink-0 ml-2">
-                    <button className="w-[52px] h-[52px] rounded-full border-[1.5px] border-primary flex items-center justify-center hover:bg-primary/10 transition-colors">
-                      <Camera className="text-primary" size={20} strokeWidth={2} />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      ref={fileInputRef} 
+                      onChange={handleFileChange} 
+                    />
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-[52px] h-[52px] rounded-full border-[1.5px] border-primary flex items-center justify-center hover:bg-primary/10 transition-colors overflow-hidden"
+                    >
+                      {avatarPreview ? (
+                        <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="text-primary" size={20} strokeWidth={2} />
+                      )}
                     </button>
                     <span className="text-[9px] text-gray-500 mt-1.5 font-bold tracking-widest">OPCIONAL</span>
                   </div>
@@ -80,7 +186,6 @@ export default function Onboarding() {
                   type="date"
                   placeholder="dd/mm/aaaa" 
                   className="bg-[#131313] border-[#1c1b1b] h-16 rounded-2xl text-base [color-scheme:dark]"
-                  rightIcon={Calendar}
                   value={data.birthDate || ''}
                   onChange={(e) => setOnboardingData({ birthDate: e.target.value })}
                 />
@@ -155,32 +260,36 @@ export default function Onboarding() {
               <h3 className="text-[11px] font-black text-primary tracking-wider mb-4">GIMNASIOS POPULARES</h3>
               <div className="space-y-3">
                 
-                {[
-                  { id: 1, name: 'Titanium Fitness', loc: 'Madrid Centro', icon: Dumbbell },
-                  { id: 2, name: 'Iron Forge Gym', loc: 'Barcelona Norte', icon: Activity },
-                  { id: 3, name: 'Elite Performance Center', loc: 'Valencia Este', icon: Dumbbell },
-                ].map(gym => (
-                  <div 
-                    key={gym.id}
-                    onClick={() => setOnboardingData({ gym: gym.name })}
-                    className={`flex items-center justify-between p-4 bg-[#131313] border ${data.gym === gym.name ? 'border-primary' : 'border-[#1c1b1b]'} rounded-2xl cursor-pointer hover:border-gray-500 transition-colors`}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-[#1c1b1b] rounded-xl flex items-center justify-center">
-                        <gym.icon size={20} className="text-gray-400" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-white">{gym.name}</h4>
-                        <div className="flex items-center text-[13px] text-gray-400 mt-0.5">
-                          <MapPin size={12} className="mr-1" /> {gym.loc}
+                {loadingGyms ? (
+                  <div className="text-center text-sm text-gray-500 py-4">Cargando gimnasios...</div>
+                ) : (
+                  gyms.map(gym => (
+                    <div 
+                      key={gym.id}
+                      onClick={() => setOnboardingData({ gym: gym.id })}
+                      className={`flex items-center justify-between p-4 bg-[#131313] border ${data.gym === gym.id ? 'border-primary' : 'border-[#1c1b1b]'} rounded-2xl cursor-pointer hover:border-gray-500 transition-colors`}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-[#1c1b1b] rounded-xl flex items-center justify-center overflow-hidden">
+                          {gym.logo ? (
+                            <img src={gym.logo} alt={gym.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <gym.icon size={20} className="text-gray-400" />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-white">{gym.name}</h4>
+                          <div className="flex items-center text-[13px] text-gray-400 mt-0.5">
+                            <MapPin size={12} className="mr-1" /> {gym.loc}
+                          </div>
                         </div>
                       </div>
+                      <div className={`w-5 h-5 rounded-full border-2 ${data.gym === gym.id ? 'border-primary bg-transparent' : 'border-gray-600'} flex items-center justify-center transition-colors`}>
+                        {data.gym === gym.id && <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_8px_rgba(204,255,0,0.8)]" />}
+                      </div>
                     </div>
-                    <div className={`w-5 h-5 rounded-full border-2 ${data.gym === gym.name ? 'border-primary bg-transparent' : 'border-gray-600'} flex items-center justify-center transition-colors`}>
-                      {data.gym === gym.name && <div className="w-2.5 h-2.5 bg-primary rounded-full shadow-[0_0_8px_rgba(204,255,0,0.8)]" />}
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
 
               </div>
             </div>
@@ -188,9 +297,11 @@ export default function Onboarding() {
         )}
 
         <div className="mt-8 pb-4">
-          <Button className="w-full h-14 flex items-center justify-center gap-2 shadow-none rounded-2xl" size="lg" onClick={handleNext}>
-            <span className="text-black font-semibold text-base">{currentStep === 3 ? 'Comenzar' : 'Siguiente'}</span>
-            <ArrowRight size={20} className="text-black" strokeWidth={2.5} />
+          <Button className="w-full h-14 flex items-center justify-center gap-2 shadow-none rounded-2xl" size="lg" onClick={handleNext} disabled={isSubmitting}>
+            <span className="text-black font-semibold text-base">
+              {isSubmitting ? 'Guardando...' : (currentStep === 3 ? 'Comenzar' : 'Siguiente')}
+            </span>
+            {!isSubmitting && <ArrowRight size={20} className="text-black" strokeWidth={2.5} />}
           </Button>
         </div>
       </div>

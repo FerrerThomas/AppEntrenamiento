@@ -7,12 +7,21 @@ import { Mail, Lock, EyeOff, ArrowRight } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
-  const login = useAppStore((state) => state.login);
+  const loginWithGoogle = useAppStore((state) => state.loginWithGoogle);
+  const loginWithEmail = useAppStore((state) => state.loginWithEmail);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    login('user@example.com');
+    await loginWithEmail('user@example.com', 'password123'); // Fallback mock
     navigate('/onboarding/1');
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      await loginWithGoogle();
+    } catch (error) {
+      console.error('Error logging in with Google:', error.message);
+    }
   };
 
   return (
@@ -65,7 +74,7 @@ export default function Login() {
         </div>
 
         <button 
-          onClick={handleLogin}
+          onClick={handleGoogleLogin}
           type="button"
           className="w-full mt-10 bg-[#1c1b1b] hover:bg-[#2a2a2a] border border-[#2a2a2a] text-white rounded-2xl h-14 flex items-center justify-center gap-3 transition-colors"
         >
