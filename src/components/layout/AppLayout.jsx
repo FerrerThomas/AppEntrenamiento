@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import BottomNavigation from './BottomNavigation';
+import ActiveWorkoutWidget from './ActiveWorkoutWidget';
 
 export default function AppLayout({ showNav = true }) {
   return (
@@ -16,6 +17,10 @@ export default function AppLayout({ showNav = true }) {
         >
           <Outlet />
         </motion.div>
+        
+        {/* Renderizar Widget siempre que haya navefación, flotará si hay entreno */}
+        {showNav && <ActiveWorkoutWidget />}
+        
         {showNav && <BottomNavigation />}
       </div>
     </div>

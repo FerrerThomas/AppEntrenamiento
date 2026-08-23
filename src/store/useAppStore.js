@@ -77,22 +77,37 @@ export const useAppStore = create((set, get) => ({
         .select(`
           id, title, type, duration_minutes,
           routine_exercises (
-            id, sets, reps, order_index,
-            exercises (id, name, muscle_group)
+            id, order_index,
+            exercises (id, name, muscle_group, gif_url),
+            routine_sets (id, set_order, target_weight_kg, target_reps)
           )
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
         
       if (!error && data) {
-        const formatted = data.map(r => ({
-          id: r.id,
-          title: r.title,
-          duration: `${r.duration_minutes || 45} min`,
-          exercisesCount: r.routine_exercises?.length || 0,
-          type: r.type || 'Fuerza',
-          routine_exercises: r.routine_exercises
-        }));
+        const formatted = data.map(r => {
+          // Ordenar los ejercicios
+          const sortedExercises = [...(r.routine_exercises || [])].sort((a, b) => a.order_index - b.order_index);
+          
+          // Formatear cada ejercicio para inyectar sus sets ordenados
+          const formattedExercises = sortedExercises.map(rx => {
+            const sortedSets = [...(rx.routine_sets || [])].sort((a, b) => a.set_order - b.set_order);
+            return {
+              ...rx,
+              sets: sortedSets // Guardamos el array de sets en vez de un número
+            };
+          });
+
+          return {
+            id: r.id,
+            title: r.title,
+            duration: `${r.duration_minutes || 45} min`,
+            exercisesCount: formattedExercises.length,
+            type: r.type || 'Fuerza',
+            routine_exercises: formattedExercises
+          };
+        });
         set({ workouts: formatted });
       }
     } catch (e) {
@@ -100,9 +115,32 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  getPreviousWorkout: async (exerciseId) => {
+    const user = get().user;
+    if (!user || !exerciseId) return [];
+    try {
+      const { data, error } = await supabase.rpc('get_previous_workout', { 
+        p_user_id: user.id, 
+        p_exercise_id: exerciseId 
+      });
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error('Error fetching previous workout:', e);
+      return [];
+    }
+  },
+
   activeWorkout: null,
-  startWorkout: (workout) => set({ activeWorkout: { ...workout, startTime: Date.now() } }),
-  finishWorkout: () => set({ activeWorkout: null }),
+  activeWorkoutSets: null,
+  startWorkout: (workout) => set({ activeWorkout: { ...workout, startTime: Date.now() }, activeWorkoutSets: null }),
+  finishWorkout: () => set({ activeWorkout: null, activeWorkoutSets: null }),
+  cancelWorkout: () => set({ activeWorkout: null, activeWorkoutSets: null }),
+  setActiveWorkoutSets: (setsOrUpdater) => set((state) => ({
+    activeWorkoutSets: typeof setsOrUpdater === 'function' 
+      ? setsOrUpdater(state.activeWorkoutSets) 
+      : setsOrUpdater
+  })),
 
   rankings: [
     { id: 1, name: 'Marcos P.', weight: '120kg', trend: 'up', position: 1, avatar: 'https://i.pravatar.cc/150?img=11' },
