@@ -29,10 +29,10 @@ function AnimatedRoutes() {
     return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-primary font-bold">Cargando...</div>;
   }
 
-  // Wrapper para forzar Onboarding si el usuario no tiene nombre
+  // Wrapper para forzar Onboarding si el usuario no tiene perfil completo (ej. no tiene peso configurado)
   const requireProfile = (element) => {
     if (!user) return <Navigate to="/login" />;
-    if (!userProfile?.username) return <Navigate to="/onboarding/1" />;
+    if (!userProfile?.weight_kg) return <Navigate to="/onboarding/1" />;
     return element;
   };
 

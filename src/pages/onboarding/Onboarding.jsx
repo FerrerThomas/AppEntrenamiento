@@ -12,6 +12,7 @@ export default function Onboarding() {
   const currentStep = parseInt(step) || 1;
   const setOnboardingData = useAppStore((state) => state.setOnboardingData);
   const data = useAppStore((state) => state.onboardingData);
+  const userProfile = useAppStore((state) => state.userProfile);
 
   const [gyms, setGyms] = useState([]);
   const [loadingGyms, setLoadingGyms] = useState(false);
@@ -27,6 +28,18 @@ export default function Onboarding() {
       setAvatarPreview(URL.createObjectURL(file));
     }
   };
+
+  useEffect(() => {
+    // Pre-cargar datos provistos por Google Auth si existen y no han sido modificados
+    if (userProfile && !data.name) {
+      setOnboardingData({ 
+        name: userProfile.username || '', 
+      });
+      if (userProfile.avatar_url && !avatarPreview) {
+        setAvatarPreview(userProfile.avatar_url);
+      }
+    }
+  }, [userProfile]);
 
   useEffect(() => {
     if (currentStep === 3) {
@@ -90,12 +103,12 @@ export default function Onboarding() {
         if (user?.id) {
           await supabase.from('users').upsert({
             id: user.id,
-            username: data.name,
+            username: data.name || userProfile?.username, // Usar el nombre de Google si no se editó
             birth_date: data.birthDate || null,
             weight_kg: data.weight,
             height_cm: data.height,
             gym_id: typeof data.gym === 'string' ? null : data.gym,
-            avatar_url: avatarUrl
+            avatar_url: avatarUrl || userProfile?.avatar_url // Mantener el de Google si no subió uno nuevo
           });
           // Recargar el perfil para que el Dashboard lo tenga inmediatamente
           await useAppStore.getState().fetchUserProfile(user.id);
