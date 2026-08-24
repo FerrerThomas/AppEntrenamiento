@@ -293,15 +293,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Edit Profile Quick Button */}
-      <Button 
-        onClick={() => setIsEditOpen(true)}
-        className="w-full py-4 mb-4 flex items-center justify-center space-x-2 bg-surface-1 hover:bg-surface-2 text-white border-none font-bold"
-      >
-        <Edit3 size={18} className="text-primary" />
-        <span>Editar Perfil y Redes</span>
-      </Button>
-
       {/* Logout Button */}
       <Button 
         variant="secondary" 

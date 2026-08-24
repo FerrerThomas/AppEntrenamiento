@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables
+.env
+.env.*
+.env.local
+!.env.example
+
+# SQL migrations and scripts
+sql/
+*.sql
+

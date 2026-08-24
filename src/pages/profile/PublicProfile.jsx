@@ -10,7 +10,12 @@ import {
   User, 
   Activity,
   Flame,
-  ExternalLink
+  ExternalLink,
+  UserPlus,
+  UserCheck,
+  UserX,
+  Clock,
+  Check
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 
@@ -40,9 +45,16 @@ export default function PublicProfile() {
   
   const currentUser = useAppStore((state) => state.user);
   const fetchPublicProfile = useAppStore((state) => state.fetchPublicProfile);
+  const getFollowStatus = useAppStore((state) => state.getFollowStatus);
+  const sendFollowRequest = useAppStore((state) => state.sendFollowRequest);
+  const cancelFollowRequest = useAppStore((state) => state.cancelFollowRequest);
+  const acceptFollowRequest = useAppStore((state) => state.acceptFollowRequest);
+  const rejectFollowRequest = useAppStore((state) => state.rejectFollowRequest);
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [followStatus, setFollowStatus] = useState('loading'); // 'loading', 'none', 'pending_sent', 'pending_received', 'following', 'self'
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -50,11 +62,43 @@ export default function PublicProfile() {
       if (profileUserId) {
         const data = await fetchPublicProfile(profileUserId);
         setProfile(data);
+        
+        if (currentUser?.id === profileUserId) {
+          setFollowStatus('self');
+        } else {
+          const status = await getFollowStatus(profileUserId);
+          setFollowStatus(status);
+        }
       }
       setLoading(false);
     };
     loadData();
-  }, [profileUserId, fetchPublicProfile]);
+  }, [profileUserId, currentUser, fetchPublicProfile, getFollowStatus]);
+
+  const handleSendFollow = async () => {
+    setActionLoading(true);
+    try {
+      await sendFollowRequest(profileUserId);
+      setFollowStatus('pending_sent');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelFollow = async () => {
+    if (!window.confirm('¿Deseas cancelar la solicitud o dejar de seguir a este atleta?')) return;
+    setActionLoading(true);
+    try {
+      await cancelFollowRequest(profileUserId);
+      setFollowStatus('none');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const isOwnProfile = currentUser?.id === profileUserId;
   const cleanInsta = (profile?.instagram || '').replace(/^@/, '');
@@ -95,7 +139,7 @@ export default function PublicProfile() {
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-[17px] font-bold">Perfil de Atleta</h1>
-        <div className="w-9"></div> {/* Espaciador balanceador */}
+        <div className="w-9"></div>
       </header>
 
       {/* Main Athlete Card */}
@@ -136,6 +180,71 @@ export default function PublicProfile() {
           <p className="text-sm text-gray-300 mb-4 px-3 italic font-normal leading-relaxed">
             "{profile.bio}"
           </p>
+        )}
+
+        {/* Botón de Seguimiento / Amistad */}
+        {!isOwnProfile && (
+          <div className="mb-5 flex justify-center">
+            {followStatus === 'following' && (
+              <button
+                onClick={handleCancelFollow}
+                disabled={actionLoading}
+                className="px-5 py-2.5 rounded-full bg-[#2c2c2e] text-primary border border-primary/30 font-bold text-xs hover:bg-[#3c3c3e] transition-all flex items-center space-x-1.5 active:scale-95"
+              >
+                <UserCheck size={14} />
+                <span>✓ Siguiendo</span>
+              </button>
+            )}
+
+            {followStatus === 'pending_sent' && (
+              <button
+                onClick={handleCancelFollow}
+                disabled={actionLoading}
+                className="px-5 py-2.5 rounded-full bg-[#2c2c2e] text-gray-400 border border-surface-2 font-bold text-xs hover:text-red-400 transition-all flex items-center space-x-1.5"
+                title="Toca para cancelar solicitud"
+              >
+                <Clock size={14} />
+                <span>Solicitud enviada</span>
+              </button>
+            )}
+
+            {followStatus === 'pending_received' && (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={async () => {
+                    setActionLoading(true);
+                    // Aceptar
+                    const status = await getFollowStatus(profileUserId);
+                    setFollowStatus('following');
+                    setActionLoading(false);
+                  }}
+                  disabled={actionLoading}
+                  className="px-4 py-2 rounded-full bg-primary text-surface-0 font-bold text-xs shadow-glow flex items-center space-x-1"
+                >
+                  <Check size={14} />
+                  <span>Aceptar Solicitud</span>
+                </button>
+                <button
+                  onClick={handleCancelFollow}
+                  disabled={actionLoading}
+                  className="px-3 py-2 rounded-full bg-[#2c2c2e] text-gray-400 text-xs font-semibold"
+                >
+                  Rechazar
+                </button>
+              </div>
+            )}
+
+            {followStatus === 'none' && (
+              <button
+                onClick={handleSendFollow}
+                disabled={actionLoading}
+                className="px-6 py-2.5 rounded-full bg-primary text-surface-0 font-black text-xs hover:opacity-90 transition-all active:scale-95 shadow-glow flex items-center space-x-1.5"
+              >
+                <UserPlus size={14} />
+                <span>Seguir Atleta</span>
+              </button>
+            )}
+          </div>
         )}
 
         {/* Social Actions */}

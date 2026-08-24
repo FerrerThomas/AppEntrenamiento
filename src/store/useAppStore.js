@@ -101,6 +101,206 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  // =========================================================================
+  // SISTEMA DE AMIGOS Y SOLICITUDES DE SEGUIMIENTO
+  // =========================================================================
+  friends: [],
+  friendsTraining: [],
+  pendingFollowRequests: [],
+
+  fetchFriends: async () => {
+    const user = get().user;
+    if (!user) return;
+    try {
+      // 1. Obtener solicitudes aceptadas donde el usuario participa
+      const { data: requests, error } = await supabase
+        .from('follow_requests')
+        .select('*')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .eq('status', 'accepted');
+
+      if (error) throw error;
+
+      if (requests && requests.length > 0) {
+        const friendIds = requests.map(r => r.sender_id === user.id ? r.receiver_id : r.sender_id);
+        const { data: friendsData } = await supabase
+          .from('users')
+          .select('id, username, avatar_url, bio, instagram, gym_id')
+          .in('id', friendIds);
+
+        const enrichedFriends = friendsData || [];
+        set({ friends: enrichedFriends });
+
+        // 2. Verificar cuáles de estos amigos han entrenado hoy
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
+        const { data: todaySessions } = await supabase
+          .from('workout_sessions')
+          .select('user_id, started_at, total_volume_kg')
+          .in('user_id', friendIds)
+          .gte('started_at', todayStart.toISOString());
+
+        if (todaySessions && todaySessions.length > 0) {
+          const activeUserIds = [...new Set(todaySessions.map(s => s.user_id))];
+          const trainingNow = enrichedFriends.filter(f => activeUserIds.includes(f.id));
+          set({ friendsTraining: trainingNow });
+        } else {
+          set({ friendsTraining: [] });
+        }
+      } else {
+        set({ friends: [], friendsTraining: [] });
+      }
+    } catch (e) {
+      console.error('Error fetching friends:', e);
+    }
+  },
+
+  fetchPendingFollowRequests: async () => {
+    const user = get().user;
+    if (!user) return;
+    try {
+      const { data: requests, error } = await supabase
+        .from('follow_requests')
+        .select('id, sender_id, created_at')
+        .eq('receiver_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (requests && requests.length > 0) {
+        const senderIds = requests.map(r => r.sender_id);
+        const { data: senders } = await supabase
+          .from('users')
+          .select('id, username, avatar_url, bio, instagram')
+          .in('id', senderIds);
+
+        const mapped = requests.map(req => {
+          const senderInfo = senders?.find(s => s.id === req.sender_id);
+          return {
+            id: req.id,
+            sender_id: req.sender_id,
+            created_at: req.created_at,
+            sender: senderInfo || { username: 'Atleta', avatar_url: null }
+          };
+        });
+
+        set({ pendingFollowRequests: mapped });
+      } else {
+        set({ pendingFollowRequests: [] });
+      }
+    } catch (e) {
+      console.error('Error fetching pending follow requests:', e);
+    }
+  },
+
+  getFollowStatus: async (targetUserId) => {
+    const user = get().user;
+    if (!user || !targetUserId || user.id === targetUserId) return 'self';
+    try {
+      const { data, error } = await supabase
+        .from('follow_requests')
+        .select('id, sender_id, receiver_id, status')
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},receiver_id.eq.${user.id})`)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return 'none';
+
+      if (data.status === 'accepted') return 'following';
+      if (data.status === 'pending') {
+        return data.sender_id === user.id ? 'pending_sent' : 'pending_received';
+      }
+      return 'none';
+    } catch (e) {
+      console.error('Error getting follow status:', e);
+      return 'none';
+    }
+  },
+
+  sendFollowRequest: async (targetUserId) => {
+    const user = get().user;
+    if (!user || !targetUserId) return;
+    try {
+      const { error } = await supabase
+        .from('follow_requests')
+        .insert({
+          sender_id: user.id,
+          receiver_id: targetUserId,
+          status: 'pending'
+        });
+      if (error) throw error;
+    } catch (e) {
+      console.error('Error sending follow request:', e);
+      throw e;
+    }
+  },
+
+  acceptFollowRequest: async (requestId) => {
+    try {
+      const { error } = await supabase
+        .from('follow_requests')
+        .update({ status: 'accepted', updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+      if (error) throw error;
+      await get().fetchPendingFollowRequests();
+      await get().fetchFriends();
+    } catch (e) {
+      console.error('Error accepting follow request:', e);
+      throw e;
+    }
+  },
+
+  rejectFollowRequest: async (requestId) => {
+    try {
+      const { error } = await supabase
+        .from('follow_requests')
+        .delete()
+        .eq('id', requestId);
+      if (error) throw error;
+      await get().fetchPendingFollowRequests();
+    } catch (e) {
+      console.error('Error rejecting follow request:', e);
+      throw e;
+    }
+  },
+
+  cancelFollowRequest: async (targetUserId) => {
+    const user = get().user;
+    if (!user || !targetUserId) return;
+    try {
+      const { error } = await supabase
+        .from('follow_requests')
+        .delete()
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},receiver_id.eq.${user.id})`);
+      if (error) throw error;
+      await get().fetchFriends();
+    } catch (e) {
+      console.error('Error canceling follow / unfollowing:', e);
+      throw e;
+    }
+  },
+
+  searchUsers: async (queryText) => {
+    const user = get().user;
+    if (!queryText.trim()) return [];
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, avatar_url, bio, instagram, gym_id')
+        .neq('id', user?.id || '')
+        .ilike('username', `%${queryText.trim()}%`)
+        .limit(20);
+
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error('Error searching users:', e);
+      return [];
+    }
+  },
+
   initializeAuth: () => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
