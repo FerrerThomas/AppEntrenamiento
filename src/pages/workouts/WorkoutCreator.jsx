@@ -1,9 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
-import { Dumbbell, Search, Info, Check, GripVertical, Trash2 } from 'lucide-react';
+import { Dumbbell, Search, Info, Check, GripVertical, Trash2, Plus, Upload, X, Camera } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
+
+const MUSCLE_CATEGORIES = [
+  'Pecho',
+  'Espalda',
+  'Piernas',
+  'Glúteos',
+  'Hombros',
+  'Bíceps',
+  'Tríceps',
+  'Abdomen',
+  'Cardio',
+  'Cuerpo Completo'
+];
 
 export default function WorkoutCreator() {
   const navigate = useNavigate();
@@ -15,12 +28,21 @@ export default function WorkoutCreator() {
   const [title, setTitle] = useState('');
   const [selectedExercises, setSelectedExercises] = useState([]);
   
-  // Modal state
+  // Modal state (Agregar Ejercicio)
   const [dbExercises, setDbExercises] = useState([]);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [draftSelected, setDraftSelected] = useState([]); // Exercises selected in the modal before adding
   const [isSaving, setIsSaving] = useState(false);
+
+  // Modal state (Crear Nuevo Ejercicio)
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newExName, setNewExName] = useState('');
+  const [newExCategory, setNewExCategory] = useState('Pecho');
+  const [newExFile, setNewExFile] = useState(null);
+  const [newExPreview, setNewExPreview] = useState(null);
+  const [isCreatingExercise, setIsCreatingExercise] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const fetchExercises = async () => {
@@ -29,6 +51,81 @@ export default function WorkoutCreator() {
     };
     fetchExercises();
   }, []);
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewExFile(file);
+      setNewExPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setNewExFile(null);
+    setNewExPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleCreateExercise = async () => {
+    if (!newExName.trim()) return;
+    setIsCreatingExercise(true);
+
+    try {
+      let finalMediaUrl = null;
+
+      // 1. Subir imagen o GIF a Supabase Storage si se seleccionó
+      if (newExFile) {
+        const fileExt = newExFile.name.split('.').pop();
+        const fileName = `exercise_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, newExFile, { upsert: true });
+
+        if (!uploadError) {
+          const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+          finalMediaUrl = publicUrlData.publicUrl;
+        } else {
+          // Fallback a data URL
+          finalMediaUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(newExFile);
+          });
+        }
+      }
+
+      // 2. Insertar en la tabla exercises
+      const { data: newExercise, error: insertError } = await supabase
+        .from('exercises')
+        .insert({
+          name: newExName.trim(),
+          muscle_group: newExCategory,
+          gif_url: finalMediaUrl
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // 3. Actualizar lista de ejercicios y seleccionarlo
+      if (newExercise) {
+        setDbExercises((prev) => [newExercise, ...prev]);
+        setDraftSelected((prev) => [...prev, newExercise]);
+      }
+
+      // 4. Limpiar estado y cerrar modal de creación
+      setNewExName('');
+      setNewExCategory('Pecho');
+      handleRemoveImage();
+      setShowCreateModal(false);
+
+    } catch (err) {
+      console.error('Error al crear ejercicio:', err);
+    } finally {
+      setIsCreatingExercise(false);
+    }
+  };
 
   // Cargar datos de la rutina si estamos en modo edición
   useEffect(() => {
@@ -318,7 +415,10 @@ export default function WorkoutCreator() {
             </div>
             <h2 className="text-[17px] font-bold flex-1 text-center">Agregar Ejercicio</h2>
             <div className="w-24 flex justify-end">
-              <button className="text-primary text-[17px] font-medium">
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="text-primary text-[17px] font-medium hover:opacity-80 transition-opacity"
+              >
                 Crear
               </button>
             </div>
@@ -404,6 +504,125 @@ export default function WorkoutCreator() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal Crear Ejercicio Personalizado */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-[#0a0a0a] z-[60] flex flex-col animate-in slide-in-from-bottom-full duration-200">
+          <header className="flex items-center justify-between p-4 pt-6 bg-[#0a0a0a] sticky top-0 z-10 border-b border-surface-2">
+            <div className="w-24 text-left">
+              <button 
+                onClick={() => setShowCreateModal(false)}
+                className="text-primary text-[17px] font-medium"
+              >
+                Cancelar
+              </button>
+            </div>
+            <h2 className="text-[17px] font-bold flex-1 text-center">Nuevo Ejercicio</h2>
+            <div className="w-24 flex justify-end">
+              <button 
+                onClick={handleCreateExercise}
+                disabled={!newExName.trim() || isCreatingExercise}
+                className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors ${
+                  newExName.trim() && !isCreatingExercise
+                    ? 'bg-primary text-surface-0'
+                    : 'bg-[#2c2c2e] text-gray-500'
+                }`}
+              >
+                {isCreatingExercise ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </header>
+
+          <div className="flex-1 overflow-y-auto p-5 space-y-6 pb-24">
+            {/* Selector de Foto / GIF */}
+            <div className="flex flex-col items-center justify-center p-6 bg-[#1c1c1e] rounded-2xl border border-surface-2">
+              <div className="relative mb-3">
+                {newExPreview ? (
+                  <div className="relative w-28 h-28 rounded-2xl overflow-hidden border-2 border-primary bg-white shadow-lg">
+                    <img src={newExPreview} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-1.5 right-1.5 bg-black/75 hover:bg-black p-1 rounded-full text-white transition-colors"
+                      title="Eliminar foto"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-28 h-28 rounded-2xl bg-surface-2/70 border border-dashed border-gray-600 hover:border-primary flex flex-col items-center justify-center cursor-pointer transition-colors group"
+                  >
+                    <Dumbbell size={36} className="text-gray-400 group-hover:text-primary transition-colors mb-1" />
+                    <span className="text-[11px] text-gray-400 text-center font-medium px-2">Sin imagen</span>
+                  </div>
+                )}
+              </div>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*,.gif"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center space-x-2 text-sm font-semibold text-primary hover:underline mt-1"
+              >
+                <Camera size={16} />
+                <span>{newExPreview ? 'Cambiar foto o GIF' : 'Subir foto o GIF (opcional)'}</span>
+              </button>
+              <p className="text-[12px] text-gray-500 text-center mt-1">
+                Si no subes foto, se mostrará el ícono de mancuerna por defecto.
+              </p>
+            </div>
+
+            {/* Nombre del Ejercicio */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Nombre del Ejercicio <span className="text-primary">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ej: Press Militar con Mancuernas"
+                value={newExName}
+                onChange={(e) => setNewExName(e.target.value)}
+                className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl p-4 text-white text-[16px] placeholder-gray-600 focus:outline-none focus:border-primary font-medium"
+              />
+            </div>
+
+            {/* Grupo Muscular / Categoría */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Grupo Muscular / Categoría
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {MUSCLE_CATEGORIES.map((cat) => {
+                  const isSelected = newExCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setNewExCategory(cat)}
+                      className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                        isSelected
+                          ? 'bg-primary text-surface-0 shadow-md scale-[1.02]'
+                          : 'bg-[#1c1c1e] text-gray-300 border border-surface-2 hover:bg-[#2c2c2e]'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
