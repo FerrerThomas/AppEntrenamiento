@@ -120,6 +120,26 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  deleteRoutine: async (routineId) => {
+    if (!routineId) return;
+    try {
+      // 1. Borrar routine_exercises (por seguridad en caso de que la FK no tenga CASCADE)
+      await supabase.from('routine_exercises').delete().eq('routine_id', routineId);
+
+      // 2. Borrar la rutina en Supabase
+      const { error } = await supabase.from('routines').delete().eq('id', routineId);
+      if (error) throw error;
+
+      // 3. Actualización optimista de estado inmediata
+      set((state) => ({
+        workouts: state.workouts.filter((w) => w.id !== routineId)
+      }));
+    } catch (e) {
+      console.error('Error deleting routine:', e);
+      throw e;
+    }
+  },
+
   getPreviousWorkout: async (exerciseId) => {
     const user = get().user;
     if (!user || !exerciseId) return [];

@@ -9,6 +9,7 @@ export default function WorkoutHub() {
   const workouts = useAppStore((state) => state.workouts);
   const startWorkout = useAppStore((state) => state.startWorkout);
   const fetchWorkouts = useAppStore((state) => state.fetchWorkouts);
+  const deleteRoutine = useAppStore((state) => state.deleteRoutine);
   const navigate = useNavigate();
 
   const [isMyRoutinesOpen, setIsMyRoutinesOpen] = useState(true);
@@ -25,9 +26,7 @@ export default function WorkoutHub() {
     if (!routineToDelete) return;
     setIsDeleting(true);
     try {
-      const { error } = await supabase.from('routines').delete().eq('id', routineToDelete.id);
-      if (error) throw error;
-      await fetchWorkouts();
+      await deleteRoutine(routineToDelete.id);
       setRoutineToDelete(null);
     } catch (err) {
       console.error('Error deleting routine:', err);
