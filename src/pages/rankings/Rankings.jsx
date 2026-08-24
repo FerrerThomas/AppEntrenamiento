@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, ChevronDown, ArrowUp, ArrowDown, Minus, Crown, Dumbbell, X } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
@@ -10,6 +11,7 @@ const timeMapping = {
 };
 
 export default function Rankings() {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState('local'); // 'local' (Mi Gimnasio) or 'global'
   const [metric, setMetric] = useState('Total'); // 'Total' (Volume) or 'RM'
   const [time, setTime] = useState('Este Mes');
@@ -103,34 +105,33 @@ export default function Rankings() {
           </div>
         </div>
 
-        {/* Search & Metric Toggle */}
-        <div className="flex space-x-3 mb-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+        {/* Search Bar for RM Exercise Filtering */}
+        {metric === 'RM' && (
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
             <input 
-              type="text" 
-              placeholder={metric === 'Total' ? "Buscar usuario..." : "Buscar ejercicio..."}
+              type="text"
+              placeholder="Buscar ejercicio para ver ranking..."
+              className="w-full bg-[#1c1c1e] border border-surface-2 text-white pl-10 pr-10 py-3 rounded-xl focus:outline-none focus:border-primary text-sm font-medium"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                if (metric === 'RM' && selectedExercise) {
-                  setSelectedExercise(null); // Si empieza a escribir, borramos la selección para que vea la lista de nuevo
-                }
-              }}
-              className="w-full bg-surface-1 border border-surface-2 rounded-lg py-2.5 pl-10 pr-10 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-primary/50 transition-colors"
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-            {searchQuery && (
+            {selectedExercise && (
               <button 
                 onClick={() => {
+                  setSelectedExercise(null);
                   setSearchQuery('');
-                  if (metric === 'RM') setSelectedExercise(null);
                 }}
-                className="absolute right-3 top-3 text-gray-400 hover:text-white"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             )}
           </div>
+        )}
+
+        {/* Metric Selector & Sub-filters */}
+        <div className="flex items-center justify-between mb-4">
           <div className="flex bg-surface-1 border border-surface-2 rounded-lg p-1">
             <button 
               className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${metric === 'Total' ? 'bg-primary text-surface-0' : 'text-gray-400 hover:text-white'}`}
@@ -220,22 +221,28 @@ export default function Rankings() {
                   
                   {/* Pos 2 */}
                   {displayPodium[0] && (
-                    <div className="flex flex-col items-center -mr-2 z-10 pb-4">
+                    <div 
+                      onClick={() => navigate(`/profile/${displayPodium[0].user_id}`)}
+                      className="flex flex-col items-center -mr-2 z-10 pb-4 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
+                    >
                       <div className="relative">
-                        <img src={displayPodium[0].avatar} className="w-20 h-20 rounded-full border-4 border-gray-300 object-cover" />
+                        <img src={displayPodium[0].avatar} className="w-20 h-20 rounded-full border-4 border-gray-300 object-cover group-hover:border-primary transition-colors" />
                         <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-surface-1 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border border-gray-300">
                           2
                         </div>
                       </div>
-                      <span className="font-bold text-xs mt-5 text-center px-1 max-w-[115px] truncate tracking-tight">{displayPodium[0].username}</span>
+                      <span className="font-bold text-xs mt-5 text-center px-1 max-w-[115px] truncate tracking-tight text-white group-hover:text-primary transition-colors">{displayPodium[0].username}</span>
                       <span className="font-black text-primary text-xl">{displayPodium[0].weight}</span>
                     </div>
                   )}
 
                   {/* Pos 1 */}
                   {displayPodium[1] && (
-                    <div className="flex flex-col items-center z-20 mx-1">
-                      <Crown className="text-primary mb-2" size={36} strokeWidth={2.5} />
+                    <div 
+                      onClick={() => navigate(`/profile/${displayPodium[1].user_id}`)}
+                      className="flex flex-col items-center z-20 mx-1 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
+                    >
+                      <Crown className="text-primary mb-2 animate-bounce" size={36} strokeWidth={2.5} />
                       <div className="relative">
                         <div className="absolute inset-0 rounded-full shadow-glow opacity-50"></div>
                         <img src={displayPodium[1].avatar} className="w-28 h-28 rounded-full border-[4px] border-primary object-cover relative z-10" />
@@ -243,21 +250,24 @@ export default function Rankings() {
                           1
                         </div>
                       </div>
-                      <span className="font-bold text-sm mt-6 text-center px-1 max-w-[135px] truncate tracking-tight">{displayPodium[1].username}</span>
+                      <span className="font-bold text-sm mt-6 text-center px-1 max-w-[135px] truncate tracking-tight text-white group-hover:text-primary transition-colors">{displayPodium[1].username}</span>
                       <span className="font-black text-primary text-2xl">{displayPodium[1].weight}</span>
                     </div>
                   )}
 
                   {/* Pos 3 */}
                   {displayPodium[2] && (
-                    <div className="flex flex-col items-center -ml-2 z-10 pb-6">
+                    <div 
+                      onClick={() => navigate(`/profile/${displayPodium[2].user_id}`)}
+                      className="flex flex-col items-center -ml-2 z-10 pb-6 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
+                    >
                       <div className="relative">
-                        <img src={displayPodium[2].avatar} className="w-20 h-20 rounded-full border-4 border-[#b07d50] object-cover" />
+                        <img src={displayPodium[2].avatar} className="w-20 h-20 rounded-full border-4 border-[#b07d50] object-cover group-hover:border-primary transition-colors" />
                         <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-surface-1 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border border-[#b07d50]">
                           3
                         </div>
                       </div>
-                      <span className="font-bold text-xs mt-5 text-center px-1 max-w-[115px] truncate tracking-tight">{displayPodium[2].username}</span>
+                      <span className="font-bold text-xs mt-5 text-center px-1 max-w-[115px] truncate tracking-tight text-white group-hover:text-primary transition-colors">{displayPodium[2].username}</span>
                       <span className="font-black text-primary text-xl">{displayPodium[2].weight}</span>
                     </div>
                   )}
@@ -266,16 +276,20 @@ export default function Rankings() {
                 {/* List */}
                 <div className="space-y-3">
                   {list.map((r) => (
-                    <div key={r.user_id} className={`border rounded-xl flex items-center justify-between p-3 px-4 ${r.user_id === userProfile?.id ? 'bg-primary/10 border-primary' : 'bg-[#1c1b1b] border-[#2a2a2a]'}`}>
+                    <div 
+                      key={r.user_id} 
+                      onClick={() => navigate(`/profile/${r.user_id}`)}
+                      className={`border rounded-xl flex items-center justify-between p-3 px-4 cursor-pointer hover:border-primary/50 transition-all active:scale-[0.99] group ${r.user_id === userProfile?.id ? 'bg-primary/10 border-primary' : 'bg-[#1c1b1b] border-[#2a2a2a]'}`}
+                    >
                       <div className="flex items-center space-x-4">
-                        <span className="text-gray-400 font-mono w-4 text-center">{r.position}</span>
-                        <img src={r.avatar} className="w-10 h-10 rounded-full object-cover" />
-                        <span className="text-white text-base">{r.username}</span>
+                        <span className="text-gray-400 font-mono w-4 text-center font-bold">{r.position}</span>
+                        <img src={r.avatar} className="w-10 h-10 rounded-full object-cover border border-surface-2 group-hover:border-primary transition-colors" />
+                        <span className="text-white text-base font-semibold group-hover:text-primary transition-colors">{r.username}</span>
                       </div>
                       <div className="flex items-center space-x-4">
-                        <span className="text-white text-base">{r.weight}</span>
-                        <div className="bg-[#2a2a2a] rounded-full p-1">
-                          <Minus className="text-gray-400" size={14} strokeWidth={3} />
+                        <span className="text-white text-base font-bold">{r.weight}</span>
+                        <div className="bg-[#2a2a2a] rounded-full p-1 group-hover:bg-primary group-hover:text-surface-0 transition-colors">
+                          <Minus className="text-gray-400 group-hover:text-surface-0" size={14} strokeWidth={3} />
                         </div>
                       </div>
                     </div>

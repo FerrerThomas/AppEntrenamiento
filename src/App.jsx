@@ -15,6 +15,7 @@ import ActiveWorkout from './pages/workouts/ActiveWorkout';
 import WorkoutSummary from './pages/workouts/WorkoutSummary';
 import Rankings from './pages/rankings/Rankings';
 import Profile from './pages/profile/Profile';
+import PublicProfile from './pages/profile/PublicProfile';
 
 import { useAppStore } from './store/useAppStore';
 
@@ -57,6 +58,7 @@ function AnimatedRoutes() {
           <Route path="/workouts" element={requireProfile(<WorkoutHub />)} />
           <Route path="/rankings" element={requireProfile(<Rankings />)} />
           <Route path="/profile" element={requireProfile(<Profile />)} />
+          <Route path="/profile/:id" element={requireProfile(<PublicProfile />)} />
         </Route>
       </Routes>
     </AnimatePresence>

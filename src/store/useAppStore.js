@@ -22,6 +22,85 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  updateUserProfile: async (profileUpdates) => {
+    const user = get().user;
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update(profileUpdates)
+        .eq('id', user.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      if (data) {
+        set({ userProfile: data });
+      }
+      return data;
+    } catch (e) {
+      console.error('Error updating user profile:', e);
+      throw e;
+    }
+  },
+
+  fetchPublicProfile: async (userId) => {
+    if (!userId) return null;
+    try {
+      // 1. Datos básicos del usuario
+      const { data: userRow, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (userError) throw userError;
+
+      // 2. Gimnasio
+      let gymName = null;
+      if (userRow?.gym_id) {
+        const { data: gymData } = await supabase
+          .from('gyms')
+          .select('name')
+          .eq('id', userRow.gym_id)
+          .single();
+        gymName = gymData?.name || null;
+      }
+
+      // 3. Estadísticas de entrenamiento
+      const { data: sessions } = await supabase
+        .from('workout_sessions')
+        .select('id, total_volume_kg, started_at')
+        .eq('user_id', userId);
+
+      let totalVolume = 0;
+      let totalWorkouts = 0;
+      if (sessions) {
+        totalWorkouts = sessions.length;
+        totalVolume = sessions.reduce((acc, curr) => acc + (parseFloat(curr.total_volume_kg) || 0), 0);
+      }
+
+      // 4. PRs del usuario
+      let prs = [];
+      try {
+        const { data: prData } = await supabase.rpc('get_user_prs', { p_user_id: userId });
+        if (prData) prs = prData;
+      } catch (err) {
+        // Silently catch if RPC not available
+      }
+
+      return {
+        ...userRow,
+        gymName,
+        totalWorkouts,
+        totalVolume: Math.round(totalVolume),
+        prs
+      };
+    } catch (e) {
+      console.error('Error fetching public profile:', e);
+      return null;
+    }
+  },
+
   initializeAuth: () => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
