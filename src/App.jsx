@@ -46,6 +46,7 @@ function AnimatedRoutes() {
         {/* Workouts specific (No Bottom Nav or Custom Nav) */}
         <Route element={<AppLayout showNav={false} />}>
           <Route path="/workouts/create" element={requireProfile(<WorkoutCreator />)} />
+          <Route path="/workouts/edit/:id" element={requireProfile(<WorkoutCreator />)} />
           <Route path="/workouts/active" element={requireProfile(<ActiveWorkout />)} />
           <Route path="/workouts/summary" element={requireProfile(<WorkoutSummary />)} />
         </Route>

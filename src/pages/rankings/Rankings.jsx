@@ -89,13 +89,13 @@ export default function Rankings() {
           <h1 className="text-2xl font-bold text-white">Rankings</h1>
           <div className="flex bg-surface-2 rounded-lg p-1">
             <button 
-              className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${filter === 'local' ? 'bg-primary text-surface-0' : 'text-gray-400'}`}
+              className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${filter === 'local' ? 'bg-primary text-surface-0' : 'text-gray-400 hover:text-white'}`}
               onClick={() => setFilter('local')}
             >
               Mi Gimnasio
             </button>
             <button 
-              className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${filter === 'global' ? 'bg-surface-2 text-white' : 'text-gray-400'}`}
+              className={`px-4 py-1.5 text-sm font-bold rounded-md transition-colors ${filter === 'global' ? 'bg-primary text-surface-0' : 'text-gray-400 hover:text-white'}`}
               onClick={() => setFilter('global')}
             >
               Global
@@ -133,13 +133,13 @@ export default function Rankings() {
           </div>
           <div className="flex bg-surface-1 border border-surface-2 rounded-lg p-1">
             <button 
-              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${metric === 'Total' ? 'text-white' : 'text-gray-400'}`}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${metric === 'Total' ? 'bg-primary text-surface-0' : 'text-gray-400 hover:text-white'}`}
               onClick={() => handleMetricChange('Total')}
             >
               Total
             </button>
             <button 
-              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${metric === 'RM' ? 'text-white' : 'text-gray-400'}`}
+              className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${metric === 'RM' ? 'bg-primary text-surface-0' : 'text-gray-400 hover:text-white'}`}
               onClick={() => handleMetricChange('RM')}
             >
               RM
@@ -153,7 +153,7 @@ export default function Rankings() {
             <button 
               key={t}
               onClick={() => setTime(t)}
-              className={`whitespace-nowrap px-4 py-1.5 rounded-lg text-xs font-semibold ${time === t ? 'bg-surface-2 text-white border border-surface-2' : 'bg-surface-1 border border-surface-2 text-gray-400'}`}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${time === t ? 'bg-primary text-surface-0 shadow-[0_0_10px_rgba(204,255,0,0.25)]' : 'bg-surface-1 border border-surface-2 text-gray-400 hover:text-white'}`}
             >
               {t}
             </button>
@@ -216,25 +216,25 @@ export default function Rankings() {
             ) : (
               <>
                 {/* Podium */}
-                <div className="flex items-end justify-center mb-12 h-48 px-4">
+                <div className="flex items-end justify-center mb-12 h-48 px-2">
                   
                   {/* Pos 2 */}
                   {displayPodium[0] && (
-                    <div className="flex flex-col items-center -mr-4 z-10 pb-4">
+                    <div className="flex flex-col items-center -mr-2 z-10 pb-4">
                       <div className="relative">
                         <img src={displayPodium[0].avatar} className="w-20 h-20 rounded-full border-4 border-gray-300 object-cover" />
                         <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-surface-1 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border border-gray-300">
                           2
                         </div>
                       </div>
-                      <span className="font-bold text-sm mt-5 text-center px-1 max-w-[80px] truncate">{displayPodium[0].username}</span>
+                      <span className="font-bold text-xs mt-5 text-center px-1 max-w-[115px] truncate tracking-tight">{displayPodium[0].username}</span>
                       <span className="font-black text-primary text-xl">{displayPodium[0].weight}</span>
                     </div>
                   )}
 
                   {/* Pos 1 */}
                   {displayPodium[1] && (
-                    <div className="flex flex-col items-center z-20 mx-2">
+                    <div className="flex flex-col items-center z-20 mx-1">
                       <Crown className="text-primary mb-2" size={36} strokeWidth={2.5} />
                       <div className="relative">
                         <div className="absolute inset-0 rounded-full shadow-glow opacity-50"></div>
@@ -243,21 +243,21 @@ export default function Rankings() {
                           1
                         </div>
                       </div>
-                      <span className="font-bold mt-6 text-center px-1 max-w-[100px] truncate">{displayPodium[1].username}</span>
+                      <span className="font-bold text-sm mt-6 text-center px-1 max-w-[135px] truncate tracking-tight">{displayPodium[1].username}</span>
                       <span className="font-black text-primary text-2xl">{displayPodium[1].weight}</span>
                     </div>
                   )}
 
                   {/* Pos 3 */}
                   {displayPodium[2] && (
-                    <div className="flex flex-col items-center -ml-4 z-10 pb-6">
+                    <div className="flex flex-col items-center -ml-2 z-10 pb-6">
                       <div className="relative">
                         <img src={displayPodium[2].avatar} className="w-20 h-20 rounded-full border-4 border-[#b07d50] object-cover" />
                         <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-surface-1 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border border-[#b07d50]">
                           3
                         </div>
                       </div>
-                      <span className="font-bold text-sm mt-5 text-center px-1 max-w-[80px] truncate">{displayPodium[2].username}</span>
+                      <span className="font-bold text-xs mt-5 text-center px-1 max-w-[115px] truncate tracking-tight">{displayPodium[2].username}</span>
                       <span className="font-black text-primary text-xl">{displayPodium[2].weight}</span>
                     </div>
                   )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import { Dumbbell, Search, Info, Check, GripVertical, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -7,7 +7,9 @@ import { useAppStore } from '../../store/useAppStore';
 
 export default function WorkoutCreator() {
   const navigate = useNavigate();
+  const { id: editRoutineId } = useParams();
   const user = useAppStore((state) => state.user);
+  const workouts = useAppStore((state) => state.workouts);
   const fetchWorkouts = useAppStore((state) => state.fetchWorkouts);
   
   const [title, setTitle] = useState('');
@@ -27,6 +29,30 @@ export default function WorkoutCreator() {
     };
     fetchExercises();
   }, []);
+
+  // Cargar datos de la rutina si estamos en modo edición
+  useEffect(() => {
+    if (editRoutineId && workouts.length > 0) {
+      const existing = workouts.find(w => w.id === editRoutineId);
+      if (existing) {
+        setTitle(existing.title || '');
+        const mappedExercises = (existing.routine_exercises || []).map(rx => ({
+          id: rx.exercises?.id,
+          name: rx.exercises?.name,
+          muscle_group: rx.exercises?.muscle_group,
+          gif_url: rx.exercises?.gif_url,
+          sets: (rx.sets && rx.sets.length > 0) 
+            ? rx.sets.map(s => ({
+                id: s.id || Math.random().toString(36).substr(2, 9),
+                weight: s.target_weight_kg ?? '',
+                reps: s.target_reps ?? ''
+              }))
+            : [{ id: Math.random().toString(36).substr(2, 9), weight: '', reps: '' }]
+        }));
+        setSelectedExercises(mappedExercises);
+      }
+    }
+  }, [editRoutineId, workouts]);
 
   const openModal = () => {
     setDraftSelected([]);
@@ -84,16 +110,42 @@ export default function WorkoutCreator() {
     setIsSaving(true);
     try {
       const finalTitle = title.trim() || 'Rutina sin título';
-      const { data: routineData, error: routineError } = await supabase
-        .from('routines')
-        .insert({ user_id: user.id, title: finalTitle, type: 'Fuerza', duration_minutes: selectedExercises.length * 10 })
-        .select()
-        .single();
+      let routineId = editRoutineId;
 
-      if (routineError) throw routineError;
+      if (editRoutineId) {
+        // Actualizar rutina existente
+        const { error: updateError } = await supabase
+          .from('routines')
+          .update({ 
+            title: finalTitle, 
+            duration_minutes: selectedExercises.length * 10 
+          })
+          .eq('id', editRoutineId);
+        
+        if (updateError) throw updateError;
 
+        // Borrar routine_exercises anteriores (los sets se eliminan en cascada)
+        await supabase.from('routine_exercises').delete().eq('routine_id', editRoutineId);
+      } else {
+        // Crear nueva rutina
+        const { data: routineData, error: routineError } = await supabase
+          .from('routines')
+          .insert({ 
+            user_id: user.id, 
+            title: finalTitle, 
+            type: 'Fuerza', 
+            duration_minutes: selectedExercises.length * 10 
+          })
+          .select()
+          .single();
+
+        if (routineError) throw routineError;
+        routineId = routineData.id;
+      }
+
+      // Insertar los ejercicios de la rutina
       const routineExercisesToInsert = selectedExercises.map((ex, idx) => ({
-        routine_id: routineData.id,
+        routine_id: routineId,
         exercise_id: ex.id,
         order_index: idx
       }));
@@ -105,9 +157,9 @@ export default function WorkoutCreator() {
 
       if (exercisesError) throw exercisesError;
 
+      // Insertar los sets
       const setsToInsert = [];
       selectedExercises.forEach((ex, idx) => {
-        // Encontramos el ID recién creado de este ejercicio en la rutina
         const insertedEx = insertedExercises.find(ie => ie.exercise_id === ex.id && ie.order_index === idx);
         if (insertedEx) {
           ex.sets.forEach((set, setIndex) => {
@@ -146,7 +198,7 @@ export default function WorkoutCreator() {
             Cancelar
           </button>
         </div>
-        <h1 className="text-[17px] font-bold flex-1 text-center">Crear Rutina</h1>
+        <h1 className="text-[17px] font-bold flex-1 text-center">{editRoutineId ? 'Editar Rutina' : 'Crear Rutina'}</h1>
         <div className="w-24 flex justify-end">
           <button 
             onClick={handleSaveRoutine}
@@ -187,7 +239,9 @@ export default function WorkoutCreator() {
                     {ex.gif_url ? (
                       <img src={ex.gif_url} alt={ex.name} className="w-10 h-10 rounded-full object-cover bg-white" />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center text-[10px] text-gray-500">Img</div>
+                      <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center text-gray-400">
+                        <Dumbbell size={18} />
+                      </div>
                     )}
                     <h4 className="font-bold text-primary text-[15px]">{ex.name}</h4>
                   </div>
@@ -310,7 +364,9 @@ export default function WorkoutCreator() {
                       {ex.gif_url ? (
                         <img src={ex.gif_url} alt={ex.name} className="w-14 h-14 rounded-full object-cover bg-white" />
                       ) : (
-                        <div className="w-14 h-14 rounded-full bg-surface-2 flex items-center justify-center text-[10px] text-gray-500 text-center">Sin imagen</div>
+                        <div className="w-14 h-14 rounded-full bg-surface-2 flex items-center justify-center text-gray-400">
+                          <Dumbbell size={24} />
+                        </div>
                       )}
                       
                       {isSelected && (
