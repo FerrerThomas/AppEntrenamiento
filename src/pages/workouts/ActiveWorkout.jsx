@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Check, MoreVertical, Timer, Activity } from 'lucide-react';
+import { ChevronDown, Check, MoreVertical, Timer, Activity, Trash2 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { supabase } from '../../lib/supabase';
 
@@ -16,12 +16,11 @@ export default function ActiveWorkout() {
   const setsData = useAppStore((state) => state.activeWorkoutSets) || {};
   const setSetsData = useAppStore((state) => state.setActiveWorkoutSets);
 
-  const [previousData, setPreviousData] = useState({}); // Para almacenar la columna "ANTERIOR"
-  const [localPRs, setLocalPRs] = useState({}); // PRs superados en la sesión actual para no repetir alertas
+  const [previousData, setPreviousData] = useState({});
+  const [localPRs, setLocalPRs] = useState({});
   const [isFinishing, setIsFinishing] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
-  // Toast notification state
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -33,15 +32,12 @@ export default function ActiveWorkout() {
     const loadInitialData = async () => {
       const initialData = {};
       const prevData = {};
-
       const isAlreadyInitialized = Object.keys(setsData).length > 0;
 
-      // Cargar PRs del usuario para compararlos en vivo
       if (!isAlreadyInitialized) {
         await getCurrentPRs();
       }
 
-      // Cargar historial en paralelo para todos los ejercicios
       const promises = activeWorkout.routine_exercises?.map(async (rx) => {
         if (!isAlreadyInitialized) {
           const setsArray = [];
@@ -62,7 +58,6 @@ export default function ActiveWorkout() {
           initialData[rx.id] = setsArray;
         }
 
-        // Cargar historial "ANTERIOR" (siempre)
         const history = await getPreviousWorkout(rx.exercises.id);
         prevData[rx.id] = history;
       });
@@ -101,26 +96,38 @@ export default function ActiveWorkout() {
 
   const updateSet = (rxId, setId, field, value) => {
     setSetsData(prev => {
-      const exSets = [...prev[rxId]];
+      const exSets = [...(prev[rxId] || [])];
       const setIdx = exSets.findIndex(s => s.id === setId);
+      if (setIdx === -1) return prev;
       exSets[setIdx] = { ...exSets[setIdx], [field]: value };
+      return { ...prev, [rxId]: exSets };
+    });
+  };
+
+  const removeSet = (rxId, setId) => {
+    setSetsData(prev => {
+      const exSets = (prev[rxId] || []).filter(s => s.id !== setId);
       return { ...prev, [rxId]: exSets };
     });
   };
 
   const toggleSet = (rxId, setId, exerciseId, exerciseName, imgUrl) => {
     setSetsData(prev => {
-      const exSets = [...prev[rxId]];
+      const exSets = [...(prev[rxId] || [])];
       const setIdx = exSets.findIndex(s => s.id === setId);
+      if (setIdx === -1) return prev;
       const isNowDone = !exSets[setIdx].done;
 
       let newKg = exSets[setIdx].kg;
       let newReps = exSets[setIdx].reps;
 
-      // Autocompletado si se hace check y está vacío
       if (isNowDone) {
-        if (newKg === '') newKg = exSets[setIdx].targetKg || 0;
-        if (newReps === '') newReps = exSets[setIdx].targetReps || 10;
+        if (newKg === '' || newKg === null || newKg === undefined) {
+          newKg = exSets[setIdx].targetKg != null ? String(exSets[setIdx].targetKg) : '0';
+        }
+        if (newReps === '' || newReps === null || newReps === undefined) {
+          newReps = exSets[setIdx].targetReps != null ? String(exSets[setIdx].targetReps) : '10';
+        }
       }
 
       const weightFloat = parseFloat(newKg) || 0;
@@ -132,21 +139,18 @@ export default function ActiveWorkout() {
       let prMessage = '';
 
       if (isNowDone && weightFloat > 0) {
-        // Encontrar PR anterior
         const prevPR = currentPRs.find(pr => pr.exercise_id === exerciseId);
         const maxVol = prevPR ? parseFloat(prevPR.max_volume) : 0;
         const max1rm = prevPR ? parseFloat(prevPR.max_1rm) : 0;
-
-        // Verificar si rompió el récord de Volumen
         const localBestVol = localPRs[`${exerciseId}_vol`] || 0;
         const localBest1rm = localPRs[`${exerciseId}_1rm`] || 0;
 
-        if (setVolume > maxVol && setVolume > localBestVol) {
+        if (maxVol > 0 && setVolume > maxVol && setVolume > localBestVol) {
           isPR = true;
           prMessage = `¡Nuevo récord de volumen! ${setVolume} kg`;
           setLocalPRs(l => ({ ...l, [`${exerciseId}_vol`]: setVolume }));
         }
-        else if (set1RM > max1rm && set1RM > localBest1rm) {
+        else if (max1rm > 0 && set1RM > max1rm && set1RM > localBest1rm) {
           isPR = true;
           prMessage = `¡Nuevo 1RM estimado! ${set1RM.toFixed(1)} kg`;
           setLocalPRs(l => ({ ...l, [`${exerciseId}_1rm`]: set1RM }));
@@ -158,7 +162,7 @@ export default function ActiveWorkout() {
         kg: newKg,
         reps: newReps,
         done: isNowDone,
-        isPR
+        isPR: isNowDone ? isPR : false
       };
 
       if (isNowDone && isPR) {
@@ -171,13 +175,21 @@ export default function ActiveWorkout() {
 
   const addSet = (rxId) => {
     setSetsData(prev => {
-      const exSets = [...prev[rxId]];
-      const newSet = { id: Math.random().toString(), kg: '', reps: '', done: false, isPR: false };
+      const exSets = [...(prev[rxId] || [])];
+      const newSet = { 
+        id: Math.random().toString(), 
+        kg: '', 
+        reps: '', 
+        targetKg: 0,
+        targetReps: 10,
+        done: false, 
+        isPR: false 
+      };
 
       if (exSets.length > 0) {
         const lastSet = exSets[exSets.length - 1];
-        newSet.kg = lastSet.kg;
-        newSet.reps = lastSet.reps;
+        newSet.targetKg = lastSet.targetKg || (lastSet.kg ? parseFloat(lastSet.kg) : 0);
+        newSet.targetReps = lastSet.targetReps || (lastSet.reps ? parseInt(lastSet.reps) : 10);
       }
 
       exSets.push(newSet);
@@ -204,20 +216,28 @@ export default function ActiveWorkout() {
         const rx = exercises.find(e => e.id === rxId);
         if (!rx) return;
 
-        setsData[rxId].forEach(set => {
+        (setsData[rxId] || []).forEach(set => {
           if (set.done) {
             exercisesDone.add(rx.exercises.name);
             const kg = parseFloat(set.kg) || 0;
             const reps = parseInt(set.reps) || 0;
-            totalVolume += kg * reps;
+            const setVolume = kg * reps;
+            const set1RM = kg * (1.0 + (reps / 30.0));
 
-            if (set.isPR) prsBroken++;
+            const prevPR = currentPRs.find(pr => pr.exercise_id === rx.exercises.id);
+            const maxVol = prevPR ? parseFloat(prevPR.max_volume) : 0;
+            const max1rm = prevPR ? parseFloat(prevPR.max_1rm) : 0;
+
+            const isGenuinePR = (maxVol > 0 && setVolume > maxVol) || (max1rm > 0 && set1RM > max1rm);
+
+            totalVolume += setVolume;
+            if (isGenuinePR) prsBroken++;
 
             setsToInsert.push({
               exercise_id: rx.exercises.id,
               weight_kg: kg,
               reps: reps,
-              is_pr: set.isPR
+              is_pr: isGenuinePR
             });
           }
         });
@@ -246,7 +266,6 @@ export default function ActiveWorkout() {
         if (setsError) throw setsError;
       }
 
-      // Preparamos datos para la pantalla de resumen
       const summaryData = {
         title: activeWorkout.title,
         duration: formatTime(elapsed),
@@ -266,164 +285,179 @@ export default function ActiveWorkout() {
     }
   };
 
-  // Stats calculation
   let totalVolume = 0;
+  let totalSets = 0;
   let completedSets = 0;
-  Object.values(setsData).forEach(sets => {
-    sets.forEach(s => {
-      if (s.done) {
+
+  Object.values(setsData).forEach(exSets => {
+    exSets.forEach(set => {
+      totalSets++;
+      if (set.done) {
         completedSets++;
-        totalVolume += (parseFloat(s.kg) || 0) * (parseInt(s.reps) || 0);
+        totalVolume += (parseFloat(set.kg) || 0) * (parseInt(set.reps) || 0);
       }
     });
   });
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#000000] text-white">
-      {/* Toast Notification */}
+    <div className="bg-[#0a0a0a] min-h-screen text-white font-sans p-4 pb-32">
       {toast && (
-        <div className="fixed top-20 left-0 right-0 z-50 flex justify-center px-4 animate-in slide-in-from-top-4 fade-in duration-300">
-          <div className="bg-[#1c1c1e] rounded-full p-2 pr-6 flex items-center shadow-lg border border-[#3c3c3e] max-w-sm w-full">
+        <div className="fixed top-6 left-4 right-4 z-50 flex justify-center animate-in slide-in-from-top-full duration-300">
+          <div className="bg-[#1c1c1e] border border-primary/40 rounded-2xl p-4 shadow-2xl flex items-center space-x-4 max-w-sm w-full">
             {toast.imgUrl ? (
-              <img src={toast.imgUrl} alt="" className="w-10 h-10 rounded-full object-cover bg-white mr-3" />
+              <img src={toast.imgUrl} alt="PR" className="w-12 h-12 rounded-full object-cover bg-white shrink-0 border border-primary" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center mr-3">🏆</div>
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-2xl shrink-0">
+                🏆
+              </div>
             )}
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-white">{toast.title}</span>
-              <span className="text-xs font-bold text-yellow-500">{toast.message}</span>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-bold text-white text-sm truncate">{toast.title}</h4>
+              <p className="text-primary text-xs font-semibold">{toast.message}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Top Header */}
-      <header className="flex items-center justify-between p-4 pt-6 bg-[#1c1c1e] sticky top-0 z-20">
-        <div className="flex items-center">
-          <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center text-white mr-3">
+      <header className="sticky top-0 bg-[#0a0a0a] pt-2 pb-4 z-10 flex justify-between items-center border-b border-surface-2">
+        <div className="flex items-center space-x-2">
+          <button onClick={() => navigate('/workouts')} className="text-gray-400 p-1">
             <ChevronDown size={24} />
           </button>
-          <h1 className="text-[17px] font-bold">Entreno</h1>
+          <div>
+            <h1 className="font-bold text-lg leading-tight">{activeWorkout.title}</h1>
+            <p className="text-gray-400 text-xs">Entrenamiento Activo</p>
+          </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <Timer size={24} className="text-gray-400" />
-          <button
-            onClick={handleFinishWorkout}
-            disabled={isFinishing}
-            className="px-6 py-2 rounded-full bg-primary text-surface-0 font-bold text-sm"
-          >
-            {isFinishing ? '...' : 'Terminar'}
-          </button>
-        </div>
+
+        <button
+          onClick={handleFinishWorkout}
+          disabled={isFinishing}
+          className="bg-primary text-surface-0 font-bold px-5 py-2 rounded-full text-sm hover:opacity-90 transition-opacity"
+        >
+          {isFinishing ? 'Guardando...' : 'Terminar'}
+        </button>
       </header>
 
-      {/* Stats Bar */}
-      <div className="flex justify-between items-center p-4 border-b border-[#1c1c1e]">
+      <div className="flex justify-between items-center py-4 border-b border-surface-2 mb-4 text-center">
         <div>
-          <p className="text-[11px] text-gray-500 font-bold tracking-wider mb-1">Duración</p>
-          <p className="text-primary font-bold">{formatTime(elapsed)}</p>
-        </div>
-        <div className="text-center">
-          <p className="text-[11px] text-gray-500 font-bold tracking-wider mb-1">Volumen</p>
-          <p className="font-bold">{totalVolume.toLocaleString()} kg</p>
-        </div>
-        <div className="text-center">
-          <p className="text-[11px] text-gray-500 font-bold tracking-wider mb-1">Series</p>
-          <p className="font-bold">{completedSets}</p>
+          <p className="text-xs text-gray-500 font-medium">TIEMPO</p>
+          <p className="font-bold text-lg text-primary">{formatTime(elapsed)}</p>
         </div>
         <div>
-          <Activity size={28} className="text-gray-400" />
+          <p className="text-xs text-gray-500 font-medium">VOLUMEN</p>
+          <p className="font-bold text-lg">{totalVolume} kg</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500 font-medium">SERIES</p>
+          <p className="font-bold text-lg">{completedSets}/{totalSets}</p>
         </div>
       </div>
 
-      {/* Exercise List */}
-      <div className="flex-1 pb-24">
-        {exercises.map((rx, exIdx) => {
+      <div className="space-y-6">
+        {exercises.map((rx, exIndex) => {
           const exSets = setsData[rx.id] || [];
 
           return (
-            <div key={rx.id} className="pt-6 pb-2 border-b border-[#1c1c1e]">
-              <div className="px-4">
-                {/* Cabecera del Ejercicio */}
-                <div className="flex items-center justify-between mb-4">
+            <div key={rx.id} className="bg-[#1c1c1e] rounded-2xl p-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    {rx.exercises.gif_url ? (
+                    {rx.exercises?.gif_url ? (
                       <img src={rx.exercises.gif_url} alt={rx.exercises.name} className="w-12 h-12 rounded-full object-cover bg-white" />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center text-[10px] text-gray-500">Img</div>
+                      <div className="w-12 h-12 rounded-full bg-surface-2 flex items-center justify-center text-gray-400">
+                        <Activity size={24} />
+                      </div>
                     )}
-                    <h4 className="font-bold text-primary text-[17px]">{rx.exercises.name}</h4>
+                    <div>
+                      <h3 className="font-bold text-primary text-[17px]">{rx.exercises?.name}</h3>
+                      <p className="text-xs text-gray-400">{rx.exercises?.muscle_group}</p>
+                    </div>
                   </div>
+
                   <button className="text-gray-400 hover:text-white p-1">
                     <MoreVertical size={20} />
                   </button>
                 </div>
 
-                {/* Subtítulos */}
                 <p className="text-gray-500 text-sm mb-3">Agregar notas aquí...</p>
                 <p className="text-primary text-sm font-medium flex items-center mb-4">
                   <Timer size={16} className="mr-1" /> Descanso: APAGADO
                 </p>
 
-                {/* Tabla de Series */}
                 <div className="space-y-1 mb-4">
-                  <div className="flex text-[11px] text-gray-500 font-bold tracking-wider mb-2">
-                    <div className="w-12 text-center">SERIE</div>
+                  <div className="flex items-center text-[11px] text-gray-500 font-bold tracking-wider mb-2">
+                    <div className="w-10 text-center">SERIE</div>
                     <div className="flex-1 text-center">ANTERIOR</div>
                     <div className="flex-1 text-center">KG</div>
                     <div className="flex-1 text-center">REPS</div>
-                    <div className="w-12 flex justify-center"><Check size={16} /></div>
+                    <div className="w-10 flex justify-center"><Check size={16} /></div>
+                    <div className="w-8 flex justify-center"></div>
                   </div>
 
                   {exSets.map((set, setIndex) => {
                     const prevSet = previousData[rx.id] && previousData[rx.id][setIndex];
                     const prevText = prevSet ? `${prevSet.weight_kg}kg x ${prevSet.reps}` : '-';
 
+                    const targetKgPlaceholder = set.targetKg ? `${set.targetKg}` : '-';
+                    const targetRepsPlaceholder = set.targetReps ? `${set.targetReps}` : '10';
+
                     return (
                       <div
                         key={set.id}
-                        className={`flex items-center py-1 transition-colors ${set.done ? 'bg-primary/20 -mx-4 px-4' : ''}`}
+                        className={`flex items-center py-1 transition-colors rounded-lg ${set.done ? 'bg-primary/20 -mx-2 px-2' : ''}`}
                       >
-                        <div className="w-12 flex justify-center">
+                        <div className="w-10 flex justify-center">
                           {set.isPR ? (
-                            <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center text-yellow-500 text-lg">🏆</div>
+                            <div className="w-7 h-7 rounded-lg bg-yellow-500/20 flex items-center justify-center text-yellow-500 text-base">🏆</div>
                           ) : (
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${set.done ? 'bg-transparent text-primary' : 'bg-surface-2 text-gray-400'}`}>
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${set.done ? 'bg-transparent text-primary' : 'bg-surface-2 text-gray-400'}`}>
                               {setIndex + 1}
                             </div>
                           )}
                         </div>
 
-                        <div className="flex-1 text-center text-gray-500 font-medium text-sm">
+                        <div className="flex-1 text-center text-gray-500 font-medium text-xs truncate px-1">
                           {prevText}
                         </div>
 
                         <div className="flex-1 flex justify-center px-1">
                           <input
                             type="number"
-                            placeholder="-"
+                            placeholder={targetKgPlaceholder}
                             value={set.kg}
                             onChange={(e) => updateSet(rx.id, set.id, 'kg', e.target.value)}
-                            className={`w-full h-9 rounded-lg text-center font-bold focus:outline-none placeholder-gray-600 ${set.done ? 'bg-transparent text-white' : 'bg-[#1c1c1e] text-white'}`}
+                            className={`w-full h-9 rounded-lg text-center font-bold focus:outline-none placeholder:text-gray-500 placeholder:font-semibold text-sm ${set.done ? 'bg-transparent text-white' : 'bg-[#141416] text-white border border-surface-2/60 focus:border-primary'}`}
                           />
                         </div>
 
                         <div className="flex-1 flex justify-center px-1">
                           <input
                             type="number"
-                            placeholder="-"
+                            placeholder={targetRepsPlaceholder}
                             value={set.reps}
                             onChange={(e) => updateSet(rx.id, set.id, 'reps', e.target.value)}
-                            className={`w-full h-9 rounded-lg text-center font-bold focus:outline-none placeholder-gray-600 ${set.done ? 'bg-transparent text-white' : 'bg-[#1c1c1e] text-white'}`}
+                            className={`w-full h-9 rounded-lg text-center font-bold focus:outline-none placeholder:text-gray-500 placeholder:font-semibold text-sm ${set.done ? 'bg-transparent text-white' : 'bg-[#141416] text-white border border-surface-2/60 focus:border-primary'}`}
                           />
                         </div>
 
-                        <div className="w-12 flex justify-center">
+                        <div className="w-10 flex justify-center">
                           <button
-                            onClick={() => toggleSet(rx.id, set.id, rx.exercises.id, rx.exercises.name, rx.exercises.gif_url)}
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${set.done ? 'bg-primary text-surface-0' : 'bg-[#1c1c1e] text-gray-500'}`}
+                            onClick={() => toggleSet(rx.id, set.id, rx.exercises?.id, rx.exercises?.name, rx.exercises?.gif_url)}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${set.done ? 'bg-primary text-surface-0 shadow-sm' : 'bg-[#141416] text-gray-500 border border-surface-2/60 hover:border-gray-400'}`}
                           >
-                            <Check size={18} strokeWidth={3} className={set.done ? 'opacity-100' : 'opacity-0'} />
+                            <Check size={16} strokeWidth={3} className={set.done ? 'opacity-100' : 'opacity-0'} />
+                          </button>
+                        </div>
+
+                        <div className="w-8 flex justify-center">
+                          <button
+                            onClick={() => removeSet(rx.id, set.id)}
+                            className="text-gray-600 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
+                            title="Eliminar serie"
+                          >
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </div>
@@ -433,7 +467,7 @@ export default function ActiveWorkout() {
 
                 <button
                   onClick={() => addSet(rx.id)}
-                  className="w-full bg-[#1c1c1e] hover:bg-[#2c2c2e] transition-colors rounded-xl py-3 text-[15px] font-medium text-white flex justify-center items-center"
+                  className="w-full bg-[#141416] hover:bg-[#2c2c2e] border border-surface-2/60 transition-colors rounded-xl py-3 text-[14px] font-medium text-white flex justify-center items-center"
                 >
                   + Agregar Serie
                 </button>
