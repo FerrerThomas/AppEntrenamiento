@@ -130,56 +130,41 @@ export default function Dashboard() {
         totalVolumeKg={lifetimeVolumeKg} 
       />
 
-      {/* Amigos entrenando / Tu comunidad Bar */}
-      <div 
-        onClick={() => navigate('/community')}
-        className="bg-surface-1 border border-surface-2 rounded-2xl p-3.5 flex items-center justify-between mb-6 cursor-pointer hover:border-primary/50 transition-all active:scale-[0.99] shadow-md group"
-      >
-        <div className="flex items-center space-x-3">
-          {trainingCount > 0 ? (
-            <>
-              <div className="flex -space-x-2">
-                {friendsTraining.slice(0, 3).map((f, i) => (
-                  <img 
-                    key={f.id} 
-                    src={f.avatar_url || `https://ui-avatars.com/api/?name=${f.username}`} 
-                    className="w-8 h-8 rounded-full border-2 border-surface-1 object-cover" 
-                  />
-                ))}
-                {trainingCount > 3 && (
-                  <div className="w-8 h-8 rounded-full bg-surface-2 border-2 border-surface-1 flex items-center justify-center text-xs font-bold z-10 text-primary">
-                    +{trainingCount - 3}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center space-x-1.5">
-                <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span>
-                <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">
-                  {trainingCount} {trainingCount === 1 ? 'amigo entrenando' : 'amigos entrenando'}
-                </span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <Users size={18} />
-              </div>
-              <div>
-                <span className="text-sm font-bold text-white group-hover:text-primary transition-colors block">
-                  Tu comunidad
-                </span>
-                <span className="text-[11px] text-gray-400">
-                  {friends.length > 0 ? `${friends.length} amigos conectados` : 'Encuentra amigos y atletas'}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
+      {/* Barra de Amigos Entrenando (Solo visible si hay amigos activos) */}
+      {trainingCount > 0 && (
+        <div 
+          onClick={() => navigate('/community')}
+          className="bg-surface-1 border border-primary/40 rounded-2xl p-3.5 flex items-center justify-between mb-6 cursor-pointer hover:border-primary transition-all active:scale-[0.99] shadow-md group animate-in fade-in duration-300"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="flex -space-x-2">
+              {friendsTraining.slice(0, 3).map((f) => (
+                <img 
+                  key={f.id} 
+                  src={f.avatar_url || `https://ui-avatars.com/api/?name=${f.username}`} 
+                  className="w-8 h-8 rounded-full border-2 border-surface-1 object-cover" 
+                  alt={f.username}
+                />
+              ))}
+              {trainingCount > 3 && (
+                <div className="w-8 h-8 rounded-full bg-surface-2 border-2 border-surface-1 flex items-center justify-center text-xs font-bold z-10 text-primary">
+                  +{trainingCount - 3}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping"></span>
+              <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">
+                {trainingCount} {trainingCount === 1 ? 'amigo entrenando' : 'amigos entrenando'}
+              </span>
+            </div>
+          </div>
 
-        <button className="text-primary text-sm font-bold flex items-center group-hover:translate-x-0.5 transition-transform">
-          Ver <ArrowRight size={16} className="ml-1" />
-        </button>
-      </div>
+          <button className="text-primary text-xs font-bold flex items-center group-hover:translate-x-0.5 transition-transform bg-primary/10 px-3 py-1.5 rounded-full">
+            Ver en vivo <ArrowRight size={14} className="ml-1" />
+          </button>
+        </div>
+      )}
 
       {/* Hero Workout Card */}
       <div className="relative rounded-[24px] overflow-hidden mb-6 p-5 flex flex-col justify-between min-h-[300px] border border-surface-2 shadow-[0_0_20px_rgba(204,255,0,0.05)] bg-surface-1">
