@@ -339,11 +339,41 @@ export const useAppStore = create((set, get) => ({
   },
 
   loginWithEmail: async (email, password) => {
-    // Dummy login just to proceed without actual auth if Supabase isn't configured yet
-    // To use real auth: await supabase.auth.signInWithPassword({ email, password })
-    if (email) {
-      set({ user: { email, name: 'Atleta' } });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password
+    });
+    if (error) throw error;
+    set({ user: data.user, session: data.session });
+    if (data.user?.id) {
+      await get().fetchUserProfile(data.user.id);
     }
+    return data;
+  },
+
+  registerWithEmail: async (email, password, username) => {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: password,
+      options: {
+        data: {
+          username: username ? username.trim() : null
+        }
+      }
+    });
+    if (error) throw error;
+    set({ user: data.user, session: data.session });
+    if (data.user?.id) {
+      await get().fetchUserProfile(data.user.id);
+    }
+    return data;
+  },
+
+  resetPassword: async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin + '/login'
+    });
+    if (error) throw error;
   },
 
   logout: async () => {
