@@ -18,6 +18,8 @@ import {
   Check
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { calculateLevel } from '../../utils/levelSystem';
+import PrestigeModal from '../../components/common/PrestigeModal';
 
 function InstagramIcon({ size = 16, className = "" }) {
   return (
@@ -55,24 +57,33 @@ export default function PublicProfile() {
   const [loading, setLoading] = useState(true);
   const [followStatus, setFollowStatus] = useState('loading'); // 'loading', 'none', 'pending_sent', 'pending_received', 'following', 'self'
   const [actionLoading, setActionLoading] = useState(false);
+  const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      if (profileUserId) {
+      try {
         const data = await fetchPublicProfile(profileUserId);
         setProfile(data);
-        
-        if (currentUser?.id === profileUserId) {
-          setFollowStatus('self');
-        } else {
-          const status = await getFollowStatus(profileUserId);
-          setFollowStatus(status);
+
+        if (currentUser?.id && profileUserId) {
+          if (currentUser.id === profileUserId) {
+            setFollowStatus('self');
+          } else {
+            const status = await getFollowStatus(profileUserId);
+            setFollowStatus(status);
+          }
         }
+      } catch (err) {
+        console.error('Error loading public profile:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-    loadData();
+
+    if (profileUserId) {
+      loadData();
+    }
   }, [profileUserId, currentUser, fetchPublicProfile, getFollowStatus]);
 
   const handleSendFollow = async () => {
@@ -88,7 +99,6 @@ export default function PublicProfile() {
   };
 
   const handleCancelFollow = async () => {
-    if (!window.confirm('¿Deseas cancelar la solicitud o dejar de seguir a este atleta?')) return;
     setActionLoading(true);
     try {
       await cancelFollowRequest(profileUserId);
@@ -100,14 +110,11 @@ export default function PublicProfile() {
     }
   };
 
-  const isOwnProfile = currentUser?.id === profileUserId;
-  const cleanInsta = (profile?.instagram || '').replace(/^@/, '');
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-white p-4 flex flex-col items-center justify-center">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-gray-400 font-semibold text-sm">Cargando perfil del atleta...</p>
+      <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary border-t-transparent mb-3"></div>
+        <p className="text-gray-400 text-xs font-semibold">Cargando perfil...</p>
       </div>
     );
   }
@@ -127,9 +134,21 @@ export default function PublicProfile() {
     );
   }
 
+  const cleanInsta = (profile.instagram || '').replace(/^@/, '');
+  const isOwnProfile = followStatus === 'self';
+  const levelInfo = calculateLevel(profile.totalVolume || 0);
+  const rank = levelInfo.rank;
+
   return (
     <div className="w-full flex-1 flex flex-col px-4 pt-1 pb-32 text-white animate-in fade-in duration-200">
       
+      {/* Modal de Prestigio */}
+      <PrestigeModal 
+        isOpen={isPrestigeOpen} 
+        onClose={() => setIsPrestigeOpen(false)} 
+        totalVolumeKg={profile.totalVolume || 0} 
+      />
+
       {/* Header Sticky */}
       <header className="flex items-center justify-between mb-4 pt-1 sticky top-0 bg-[#0a0a0a]/90 backdrop-blur-md z-10 pb-2 border-b border-surface-2/60">
         <button 
@@ -162,18 +181,33 @@ export default function PublicProfile() {
         {/* Username */}
         <h2 className="text-2xl font-black text-white z-10 relative mb-1">{profile.username || 'Atleta'}</h2>
         
+        {/* Prestige & Level Badge */}
+        <div 
+          onClick={() => setIsPrestigeOpen(true)}
+          className="inline-flex items-center space-x-2 my-2 px-3.5 py-1 rounded-full bg-[#121214] border border-surface-2 cursor-pointer hover:border-primary/60 transition-all z-10 relative group"
+        >
+          <span className="text-sm font-black text-white">Lv. {levelInfo.level}</span>
+          <span className="text-gray-500">•</span>
+          <span className={`text-xs font-black ${rank.textClass} flex items-center space-x-1`}>
+            <span>{rank.badge}</span>
+            <span>{rank.fullName}</span>
+          </span>
+        </div>
+
         {/* Gym Badge */}
-        {profile.gymName ? (
-          <div className="inline-flex items-center space-x-1 px-3 py-1 rounded-full bg-surface-2/80 text-primary text-xs font-semibold mb-3">
-            <MapPin size={12} />
-            <span>{profile.gymName}</span>
-          </div>
-        ) : (
-          <div className="inline-flex items-center space-x-1 px-3 py-1 rounded-full bg-surface-2/80 text-gray-400 text-xs font-semibold mb-3">
-            <Dumbbell size={12} />
-            <span>Comunidad FTraining</span>
-          </div>
-        )}
+        <div className="mt-1 mb-3">
+          {profile.gymName ? (
+            <div className="inline-flex items-center space-x-1 px-3 py-1 rounded-full bg-surface-2/80 text-primary text-xs font-semibold">
+              <MapPin size={12} />
+              <span>{profile.gymName}</span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center space-x-1 px-3 py-1 rounded-full bg-surface-2/80 text-gray-400 text-xs font-semibold">
+              <Dumbbell size={12} />
+              <span>Comunidad FTraining</span>
+            </div>
+          )}
+        </div>
 
         {/* Bio / Description */}
         {profile.bio && (
@@ -213,21 +247,20 @@ export default function PublicProfile() {
                 <button
                   onClick={async () => {
                     setActionLoading(true);
-                    // Aceptar
-                    const status = await getFollowStatus(profileUserId);
                     setFollowStatus('following');
                     setActionLoading(false);
                   }}
-                  disabled={actionLoading}
-                  className="px-4 py-2 rounded-full bg-primary text-surface-0 font-bold text-xs shadow-glow flex items-center space-x-1"
+                  className="px-4 py-2 rounded-full bg-primary text-surface-0 font-bold text-xs hover:opacity-90 transition-all active:scale-95"
                 >
-                  <Check size={14} />
-                  <span>Aceptar Solicitud</span>
+                  ✓ Aceptar Solicitud
                 </button>
                 <button
-                  onClick={handleCancelFollow}
-                  disabled={actionLoading}
-                  className="px-3 py-2 rounded-full bg-[#2c2c2e] text-gray-400 text-xs font-semibold"
+                  onClick={async () => {
+                    setActionLoading(true);
+                    setFollowStatus('none');
+                    setActionLoading(false);
+                  }}
+                  className="px-3 py-2 rounded-full bg-[#2c2c2e] text-gray-400 font-semibold text-xs"
                 >
                   Rechazar
                 </button>
@@ -238,27 +271,26 @@ export default function PublicProfile() {
               <button
                 onClick={handleSendFollow}
                 disabled={actionLoading}
-                className="px-6 py-2.5 rounded-full bg-primary text-surface-0 font-black text-xs hover:opacity-90 transition-all active:scale-95 shadow-glow flex items-center space-x-1.5"
+                className="px-6 py-2.5 rounded-full bg-primary text-surface-0 font-black text-xs hover:opacity-90 transition-all active:scale-95 flex items-center space-x-1.5 shadow-glow"
               >
                 <UserPlus size={14} />
-                <span>Seguir Atleta</span>
+                <span>+ Seguir Atleta</span>
               </button>
             )}
           </div>
         )}
 
-        {/* Social Actions */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5 pt-3 border-t border-surface-2/60">
+        {/* Redes Sociales */}
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-3 border-t border-surface-2/60">
           {cleanInsta && (
             <a
               href={`https://instagram.com/${cleanInsta}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white hover:opacity-95 transition-all shadow-md active:scale-95 text-xs font-extrabold"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#833ab4]/30 via-[#fd1d1d]/30 to-[#fcb045]/30 border border-[#fd1d1d]/40 text-white hover:opacity-90 transition-all active:scale-95 text-xs font-bold"
             >
-              <InstagramIcon size={16} />
-              <span>Ver Instagram (@{cleanInsta})</span>
-              <ExternalLink size={12} className="opacity-80" />
+              <InstagramIcon size={15} className="text-[#fcb045]" />
+              <span>@{cleanInsta}</span>
             </a>
           )}
 
@@ -295,8 +327,8 @@ export default function PublicProfile() {
           <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2">
             <Flame size={18} />
           </div>
-          <p className="text-2xl font-black text-white">{(profile.totalVolume || 0).toLocaleString()}</p>
-          <p className="text-xs text-gray-400 font-medium mt-0.5">Kg Totales</p>
+          <p className="text-2xl font-black text-white">{levelInfo.formattedTons}</p>
+          <p className="text-xs text-gray-400 font-medium mt-0.5">Tonelaje Total</p>
         </div>
       </div>
 
@@ -319,23 +351,13 @@ export default function PublicProfile() {
                   <p className="text-[11px] text-gray-400">{pr.muscle_group || 'General'}</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-base font-black text-primary">{Math.round(pr.max_1rm || 0)} kg</span>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">1RM Est.</p>
+                  <span className="text-base font-black text-primary">{Math.round(pr.max_weight_kg)} kg</span>
+                  <span className="text-[10px] text-gray-400 block font-medium">1RM Máx</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      )}
-
-      {/* Si es su propio perfil */}
-      {isOwnProfile && (
-        <Button 
-          onClick={() => navigate('/profile')}
-          className="w-full py-4 font-bold"
-        >
-          Ir a Mi Perfil Editable
-        </Button>
       )}
     </div>
   );

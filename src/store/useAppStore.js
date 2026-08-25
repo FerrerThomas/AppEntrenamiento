@@ -5,6 +5,7 @@ export const useAppStore = create((set, get) => ({
   user: null,
   session: null,
   userProfile: null,
+  lifetimeVolumeKg: 0,
   authInitialized: false,
   profileLoaded: false,
 
@@ -14,6 +15,17 @@ export const useAppStore = create((set, get) => ({
       const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
       if (!error && data) {
         set({ userProfile: data });
+      }
+
+      // Obtener volumen histórico total para el sistema de niveles
+      const { data: sessions } = await supabase
+        .from('workout_sessions')
+        .select('total_volume_kg')
+        .eq('user_id', userId);
+      
+      if (sessions) {
+        const total = sessions.reduce((acc, curr) => acc + (parseFloat(curr.total_volume_kg) || 0), 0);
+        set({ lifetimeVolumeKg: Math.round(total) });
       }
     } catch (e) {
       console.error('Error fetching user profile:', e);
@@ -529,10 +541,11 @@ export const useAppStore = create((set, get) => ({
   
   startWorkout: (workout) => set({ activeWorkout: { ...workout, startTime: Date.now() }, activeWorkoutSets: null }),
   
-  finishWorkout: (summaryData) => set({ 
+  finishWorkout: (summaryData) => set((state) => ({ 
     // Mantenemos activeWorkout para que la pantalla anterior no explote al hacer la transición
-    lastCompletedWorkout: summaryData 
-  }),
+    lastCompletedWorkout: summaryData,
+    lifetimeVolumeKg: state.lifetimeVolumeKg + (parseFloat(summaryData?.volume) || 0)
+  })),
   
   clearWorkout: () => set({
     activeWorkout: null,

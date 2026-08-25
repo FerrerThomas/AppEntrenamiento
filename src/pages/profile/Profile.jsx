@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { calculateLevel } from '../../utils/levelSystem';
+import PrestigeModal from '../../components/common/PrestigeModal';
 
 function InstagramIcon({ size = 16, className = "" }) {
   return (
@@ -48,6 +50,7 @@ export default function Profile() {
   const navigate = useNavigate();
 
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Form State
@@ -168,9 +171,18 @@ export default function Profile() {
   };
 
   const cleanInsta = (userProfile?.instagram || '').replace(/^@/, '');
+  const levelInfo = calculateLevel(stats.totalVolume);
+  const rank = levelInfo.rank;
 
   return (
     <div className="px-4 pt-1 pb-32 flex-1 flex flex-col w-full text-white">
+      {/* Prestige Roadmap Modal */}
+      <PrestigeModal 
+        isOpen={isPrestigeOpen} 
+        onClose={() => setIsPrestigeOpen(false)} 
+        totalVolumeKg={stats.totalVolume} 
+      />
+
       {/* Header */}
       <header className="flex justify-between items-center mb-4 pt-1">
         <h1 className="text-[28px] font-extrabold">Mi Perfil</h1>
@@ -202,6 +214,20 @@ export default function Profile() {
 
         {/* Name & Email */}
         <h2 className="text-2xl font-black text-white z-10 relative">{userProfile?.username || 'Atleta'}</h2>
+        
+        {/* Prestige & Level Badge */}
+        <div 
+          onClick={() => setIsPrestigeOpen(true)}
+          className="inline-flex items-center space-x-2 my-2.5 px-3.5 py-1 rounded-full bg-[#121214] border border-surface-2 cursor-pointer hover:border-primary/60 transition-all z-10 relative group"
+        >
+          <span className="text-sm font-black text-white">Lv. {levelInfo.level}</span>
+          <span className="text-gray-500">•</span>
+          <span className={`text-xs font-black ${rank.textClass} flex items-center space-x-1`}>
+            <span>{rank.badge}</span>
+            <span>{rank.fullName}</span>
+          </span>
+        </div>
+
         <p className="text-xs text-gray-400 mb-3 z-10 relative">{user?.email}</p>
 
         {/* Bio */}

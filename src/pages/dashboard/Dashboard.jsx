@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { useAppStore } from '../../store/useAppStore';
+import { useNavigate } from 'react-router-dom';
+import { Bell, ArrowRight, Maximize2, Heart, MessageSquare, Trophy, Users, Flame, Shield, Sparkles } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { Bell, ArrowRight, Maximize2, Heart, MessageSquare, Trophy, Users, Flame } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useAppStore } from '../../store/useAppStore';
+import { calculateLevel } from '../../utils/levelSystem';
+import PrestigeModal from '../../components/common/PrestigeModal';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const currentWorkout = useAppStore((state) => state.activeWorkout);
   const userProfile = useAppStore((state) => state.userProfile);
+  const lifetimeVolumeKg = useAppStore((state) => state.lifetimeVolumeKg) || 0;
+  
   const friends = useAppStore((state) => state.friends) || [];
   const friendsTraining = useAppStore((state) => state.friendsTraining) || [];
   const pendingRequests = useAppStore((state) => state.pendingFollowRequests) || [];
+  
   const fetchFriends = useAppStore((state) => state.fetchFriends);
   const fetchPendingFollowRequests = useAppStore((state) => state.fetchPendingFollowRequests);
-  const navigate = useNavigate();
 
   const [likes, setLikes] = useState({ 1: 12, 2: 24 });
   const [hasLiked, setHasLiked] = useState({ 1: false, 2: true });
+  const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
 
   useEffect(() => {
     fetchFriends();
@@ -35,6 +41,8 @@ export default function Dashboard() {
   };
 
   const trainingCount = friendsTraining.length;
+  const levelInfo = calculateLevel(lifetimeVolumeKg);
+  const rank = levelInfo.rank;
 
   return (
     <div className="px-4 pt-1 pb-32 flex-1 flex flex-col w-full">
@@ -71,6 +79,56 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
+
+      {/* Tarjeta de Nivel y Rango de Prestigio */}
+      <div 
+        onClick={() => setIsPrestigeOpen(true)}
+        className={`bg-surface-1 border ${rank.borderClass} rounded-2xl p-4 mb-4 cursor-pointer hover:border-primary/60 transition-all active:scale-[0.99] shadow-lg relative overflow-hidden group`}
+      >
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center space-x-2.5">
+            <span className="text-2xl">{rank.badge}</span>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-white font-black text-base">Nivel {levelInfo.level}</span>
+                <span className={`px-2 py-0.5 rounded-full ${rank.bgClass} ${rank.textClass} border ${rank.borderClass} text-[11px] font-extrabold uppercase`}>
+                  {rank.fullName}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400 font-medium">
+                {levelInfo.formattedTons} acumulados • Toca para ver rangos
+              </p>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <span className="text-xs font-black text-primary group-hover:underline flex items-center">
+              {levelInfo.progressPercent}% <ArrowRight size={13} className="ml-0.5" />
+            </span>
+          </div>
+        </div>
+
+        {/* Barra de Progreso XP */}
+        <div className="space-y-1">
+          <div className="w-full h-2 bg-[#121214] rounded-full overflow-hidden p-0.5 border border-white/5">
+            <div 
+              className="h-full bg-primary rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(204,255,0,0.4)]"
+              style={{ width: `${levelInfo.progressPercent}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] text-gray-400 font-medium px-0.5">
+            <span>{levelInfo.kgInCurrentLevel.toLocaleString()} kg</span>
+            <span>Faltan {levelInfo.remainingKg.toLocaleString()} kg para Nv. {levelInfo.level + 1}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de Prestigio */}
+      <PrestigeModal 
+        isOpen={isPrestigeOpen} 
+        onClose={() => setIsPrestigeOpen(false)} 
+        totalVolumeKg={lifetimeVolumeKg} 
+      />
 
       {/* Amigos entrenando / Tu comunidad Bar */}
       <div 
