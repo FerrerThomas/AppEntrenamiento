@@ -210,7 +210,8 @@ export default function Profile() {
   };
 
   const cleanInsta = (userProfile?.instagram || '').replace(/^@/, '');
-  const levelInfo = calculateLevel(stats.totalVolume);
+  const totalEffectiveVol = stats.totalVolume || parseFloat(userProfile?.lifetime_volume_kg) || 0;
+  const levelInfo = calculateLevel(totalEffectiveVol);
   const rank = levelInfo.rank;
 
   const formatDate = (isoString) => {
@@ -230,7 +231,7 @@ export default function Profile() {
       <PrestigeModal 
         isOpen={isPrestigeOpen} 
         onClose={() => setIsPrestigeOpen(false)} 
-        totalVolumeKg={stats.totalVolume} 
+        totalVolumeKg={totalEffectiveVol} 
       />
 
       {/* Workout Detail & Delete Modal */}

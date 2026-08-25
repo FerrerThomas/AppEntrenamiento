@@ -78,26 +78,27 @@ export const useAppStore = create((set, get) => ({
         gymName = gymData?.name || null;
       }
 
-      // 3. Estadísticas de entrenamiento
+      // 3. Estadísticas de entrenamiento (con fallback al volumen histórico consolidado)
+      let totalVolume = parseFloat(userRow?.lifetime_volume_kg) || 0;
+      let totalWorkouts = 0;
+
       const { data: sessions } = await supabase
         .from('workout_sessions')
         .select('id, total_volume_kg, started_at')
         .eq('user_id', userId);
 
-      let totalVolume = 0;
-      let totalWorkouts = 0;
-      if (sessions) {
+      if (sessions && sessions.length > 0) {
         totalWorkouts = sessions.length;
-        totalVolume = sessions.reduce((acc, curr) => acc + (parseFloat(curr.total_volume_kg) || 0), 0);
+        const calculatedVol = sessions.reduce((acc, curr) => acc + (parseFloat(curr.total_volume_kg) || 0), 0);
+        if (calculatedVol > 0) totalVolume = calculatedVol;
       }
 
       // 4. PRs del usuario
       let prs = [];
       try {
-        const { data: prData } = await supabase.rpc('get_user_prs', { p_user_id: userId });
-        if (prData) prs = prData;
+        prs = await get().getCurrentPRs(userId);
       } catch (err) {
-        // Silently catch if RPC not available
+        console.error('Error loading PRs for public profile:', err);
       }
 
       return {
@@ -105,6 +106,7 @@ export const useAppStore = create((set, get) => ({
         gymName,
         totalWorkouts,
         totalVolume: Math.round(totalVolume),
+        lifetime_volume_kg: totalVolume,
         prs
       };
     } catch (e) {
@@ -443,14 +445,39 @@ export const useAppStore = create((set, get) => ({
   },
 
   currentPRs: [],
-  getCurrentPRs: async () => {
+  getCurrentPRs: async (targetUserId) => {
     const user = get().user;
-    if (!user) return [];
+    const uid = targetUserId || user?.id;
+    if (!uid) return [];
     try {
-      const { data, error } = await supabase.rpc('get_user_prs', { p_user_id: user.id });
+      const { data, error } = await supabase.rpc('get_user_prs', { p_user_id: uid });
       if (error) throw error;
-      set({ currentPRs: data || [] });
-      return data || [];
+      let prs = data || [];
+
+      // Si los PRs no traen nombre del ejercicio, enriquecer con la tabla exercises
+      if (prs.length > 0 && !prs[0].exercise_name) {
+        const exIds = prs.map(p => p.exercise_id).filter(Boolean);
+        if (exIds.length > 0) {
+          const { data: exData } = await supabase
+            .from('exercises')
+            .select('id, name, muscle_group')
+            .in('id', exIds);
+          if (exData) {
+            const exMap = Object.fromEntries(exData.map(e => [e.id, e]));
+            prs = prs.map(p => ({
+              ...p,
+              exercise_name: exMap[p.exercise_id]?.name || 'Ejercicio',
+              muscle_group: exMap[p.exercise_id]?.muscle_group || 'General',
+              max_weight_kg: p.max_weight_kg || p.max_1rm
+            }));
+          }
+        }
+      }
+
+      if (!targetUserId || targetUserId === user?.id) {
+        set({ currentPRs: prs });
+      }
+      return prs;
     } catch (e) {
       console.error('Error fetching PRs:', e);
       return [];

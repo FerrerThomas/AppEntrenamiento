@@ -44,7 +44,14 @@ export default function WorkoutHub() {
 
       {/* Empezar Entrenamiento Vacío */}
       <Button 
-        onClick={() => navigate('/workouts/active')}
+        onClick={() => {
+          startWorkout({
+            id: null,
+            title: 'Entrenamiento Libre',
+            routine_exercises: []
+          });
+          navigate('/workouts/active');
+        }}
         className="w-full flex items-center justify-start py-4 mb-8"
         variant="outline"
       >

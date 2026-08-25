@@ -169,7 +169,8 @@ export default function PublicProfile() {
 
   const cleanInsta = (profile.instagram || '').replace(/^@/, '');
   const isOwnProfile = followStatus === 'self';
-  const levelInfo = calculateLevel(profile.totalVolume || 0);
+  const effectiveVolume = parseFloat(profile.lifetime_volume_kg) || parseFloat(profile.totalVolume) || 0;
+  const levelInfo = calculateLevel(effectiveVolume);
   const rank = levelInfo.rank;
 
   return (
@@ -179,7 +180,7 @@ export default function PublicProfile() {
       <PrestigeModal 
         isOpen={isPrestigeOpen} 
         onClose={() => setIsPrestigeOpen(false)} 
-        totalVolumeKg={profile.totalVolume || 0} 
+        totalVolumeKg={effectiveVolume} 
       />
 
       {/* Modal de Detalle de Entrenamiento (Solo lectura) */}
