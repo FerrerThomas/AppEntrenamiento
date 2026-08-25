@@ -37,10 +37,10 @@ export default function Dashboard() {
   const trainingCount = friendsTraining.length;
 
   return (
-    <div className="p-6 pb-32 min-h-screen bg-surface-0 flex flex-col max-w-md mx-auto">
+    <div className="px-4 pt-1 pb-32 flex-1 flex flex-col w-full">
       
       {/* Header */}
-      <header className="flex justify-between items-center mb-6 pt-2">
+      <header className="flex justify-between items-center mb-4 pt-1">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-white">Hola, {userProfile?.username?.split(' ')[0] || 'Atleta'}</h1>
           <p className="text-gray-400 font-medium text-sm">Listo para aplastar tus metas?</p>

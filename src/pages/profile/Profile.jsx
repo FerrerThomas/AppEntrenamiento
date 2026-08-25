@@ -170,9 +170,9 @@ export default function Profile() {
   const cleanInsta = (userProfile?.instagram || '').replace(/^@/, '');
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-4 pb-32 max-w-md mx-auto">
+    <div className="px-4 pt-1 pb-32 flex-1 flex flex-col w-full text-white">
       {/* Header */}
-      <header className="flex justify-between items-center mb-6 pt-2">
+      <header className="flex justify-between items-center mb-4 pt-1">
         <h1 className="text-[28px] font-extrabold">Mi Perfil</h1>
         <button 
           onClick={() => setIsEditOpen(true)}

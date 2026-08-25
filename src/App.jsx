@@ -18,6 +18,7 @@ import Profile from './pages/profile/Profile';
 import PublicProfile from './pages/profile/PublicProfile';
 import Community from './pages/community/Community';
 
+import ScrollToTop from './components/common/ScrollToTop';
 import { useAppStore } from './store/useAppStore';
 
 function AnimatedRoutes() {
@@ -76,9 +77,11 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AnimatedRoutes />
     </BrowserRouter>
   );
 }
 
 export default App;
+

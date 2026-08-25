@@ -406,8 +406,8 @@ export default function WorkoutCreator() {
 
       {/* Modal Agregar Ejercicio */}
       {showExerciseModal && (
-        <div className="fixed inset-0 bg-[#0a0a0a] z-50 flex flex-col animate-in slide-in-from-bottom-full duration-200">
-          <header className="flex items-center justify-between p-4 pt-6 bg-[#0a0a0a] sticky top-0 z-10 border-b border-surface-2">
+        <div className="fixed inset-0 bg-[#0a0a0a] z-50 flex flex-col pt-safe animate-in slide-in-from-bottom-full duration-200">
+          <header className="flex items-center justify-between p-4 py-3 bg-[#0a0a0a] sticky top-0 z-10 border-b border-surface-2">
             <div className="w-24 text-left">
               <button onClick={() => setShowExerciseModal(false)} className="text-primary text-[17px] font-medium">
                 Cancelar
@@ -424,7 +424,7 @@ export default function WorkoutCreator() {
             </div>
           </header>
           
-          <div className="p-4 bg-[#0a0a0a] sticky top-[65px] z-10">
+          <div className="p-4 bg-[#0a0a0a] sticky top-[53px] z-10 border-b border-surface-2/40">
             <div className="bg-[#1c1c1e] rounded-xl flex items-center px-3 py-2 mb-3">
               <Search size={20} className="text-gray-500 mr-2" />
               <input 
@@ -432,7 +432,7 @@ export default function WorkoutCreator() {
                 placeholder="Buscar ejercicio" 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="bg-transparent border-none text-white focus:outline-none w-full text-[17px]"
+                className="bg-transparent border-none text-white focus:outline-none w-full text-base"
               />
             </div>
             
@@ -509,8 +509,8 @@ export default function WorkoutCreator() {
 
       {/* Modal Crear Ejercicio Personalizado */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-[#0a0a0a] z-[60] flex flex-col animate-in slide-in-from-bottom-full duration-200">
-          <header className="flex items-center justify-between p-4 pt-6 bg-[#0a0a0a] sticky top-0 z-10 border-b border-surface-2">
+        <div className="fixed inset-0 bg-[#0a0a0a] z-[60] flex flex-col pt-safe animate-in slide-in-from-bottom-full duration-200">
+          <header className="flex items-center justify-between p-4 py-3 bg-[#0a0a0a] sticky top-0 z-10 border-b border-surface-2">
             <div className="w-24 text-left">
               <button 
                 onClick={() => setShowCreateModal(false)}

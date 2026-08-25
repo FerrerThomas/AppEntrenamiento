@@ -101,11 +101,11 @@ export default function Rankings() {
   };
 
   return (
-    <div className="p-4 pb-32 min-h-screen bg-surface-0 flex flex-col items-center">
+    <div className="px-4 pt-1 pb-32 flex-1 flex flex-col items-center w-full">
       <div className="w-full max-w-md">
         
         {/* Header & Local/Global Segmented Bar */}
-        <div className="flex items-center justify-between mb-4 mt-2">
+        <div className="flex items-center justify-between mb-3 mt-1">
           <h1 className="text-2xl font-black text-white">Rankings</h1>
           
           <div className="flex bg-[#242426] border border-surface-2 rounded-[14px] p-1 relative">

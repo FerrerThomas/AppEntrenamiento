@@ -128,10 +128,10 @@ export default function PublicProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-4 pb-32 max-w-md mx-auto animate-in fade-in duration-200">
+    <div className="w-full flex-1 flex flex-col px-4 pt-1 pb-32 text-white animate-in fade-in duration-200">
       
       {/* Header Sticky */}
-      <header className="flex items-center justify-between mb-6 pt-2 sticky top-0 bg-[#0a0a0a]/90 backdrop-blur-md z-10 pb-2 border-b border-surface-2/60">
+      <header className="flex items-center justify-between mb-4 pt-1 sticky top-0 bg-[#0a0a0a]/90 backdrop-blur-md z-10 pb-2 border-b border-surface-2/60">
         <button 
           onClick={() => navigate(-1)}
           className="p-2 rounded-full bg-[#1c1c1e] text-gray-300 hover:text-white transition-colors"
