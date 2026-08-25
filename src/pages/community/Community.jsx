@@ -17,6 +17,7 @@ import {
   MapPin
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { calculateLevel } from '../../utils/levelSystem';
 
 function InstagramIcon({ size = 14, className = "" }) {
   return (
@@ -237,7 +238,12 @@ export default function Community() {
                           className="w-12 h-12 rounded-full object-cover border border-surface-2 shrink-0" 
                         />
                         <div className="min-w-0">
-                          <h4 className="font-bold text-sm text-white truncate">{friend.username}</h4>
+                          <div className="flex items-center space-x-1.5">
+                            <h4 className="font-bold text-sm text-white truncate">{friend.username}</h4>
+                            <span className="px-1.5 py-0.2 rounded bg-surface-2 text-primary font-black text-[10px] shrink-0 border border-white/5">
+                              Lv. {friend.current_level || calculateLevel(friend.lifetime_volume_kg || 0).level}
+                            </span>
+                          </div>
                           {cleanInsta ? (
                             <span className="text-[11px] text-[#fcb045] flex items-center font-medium mt-0.5">
                               <InstagramIcon size={12} className="mr-1 shrink-0" />
@@ -315,7 +321,12 @@ export default function Community() {
                         className="w-12 h-12 rounded-full object-cover border border-surface-2 shrink-0" 
                       />
                       <div className="min-w-0">
-                        <h4 className="font-bold text-sm text-white truncate hover:text-primary transition-colors">{user.username}</h4>
+                        <div className="flex items-center space-x-1.5">
+                          <h4 className="font-bold text-sm text-white truncate hover:text-primary transition-colors">{user.username}</h4>
+                          <span className="px-1.5 py-0.2 rounded bg-surface-2 text-primary font-black text-[10px] shrink-0 border border-white/5">
+                            Lv. {user.current_level || calculateLevel(user.lifetime_volume_kg || 0).level}
+                          </span>
+                        </div>
                         <p className="text-[11px] text-gray-400 truncate mt-0.5">{user.bio || 'Atleta FTraining'}</p>
                       </div>
                     </div>

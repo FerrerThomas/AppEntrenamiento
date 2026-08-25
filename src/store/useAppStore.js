@@ -137,7 +137,7 @@ export const useAppStore = create((set, get) => ({
         const friendIds = requests.map(r => r.sender_id === user.id ? r.receiver_id : r.sender_id);
         const { data: friendsData } = await supabase
           .from('users')
-          .select('id, username, avatar_url, bio, instagram, gym_id')
+          .select('id, username, avatar_url, bio, instagram, gym_id, lifetime_volume_kg, current_level, prestige_rank')
           .in('id', friendIds);
 
         const enrichedFriends = friendsData || [];
@@ -300,7 +300,7 @@ export const useAppStore = create((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, username, avatar_url, bio, instagram, gym_id')
+        .select('id, username, avatar_url, bio, instagram, gym_id, lifetime_volume_kg, current_level, prestige_rank')
         .neq('id', user?.id || '')
         .ilike('username', `%${queryText.trim()}%`)
         .limit(20);
