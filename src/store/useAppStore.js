@@ -137,29 +137,24 @@ export const useAppStore = create((set, get) => ({
         const friendIds = requests.map(r => r.sender_id === user.id ? r.receiver_id : r.sender_id);
         const { data: friendsData } = await supabase
           .from('users')
-          .select('id, username, avatar_url, bio, instagram, gym_id, lifetime_volume_kg, current_level, prestige_rank')
+          .select('id, username, avatar_url, bio, instagram, gym_id, lifetime_volume_kg, current_level, prestige_rank, is_active_training, active_routine_title, active_training_started_at')
           .in('id', friendIds);
 
         const enrichedFriends = friendsData || [];
         set({ friends: enrichedFriends });
 
-        // 2. Verificar cuáles de estos amigos han entrenado hoy
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
+        // 2. Detectar amigos que están ACTIVAMENTE entrenando en vivo (is_active_training = true)
+        const now = Date.now();
+        const maxActiveDurationMs = 3 * 60 * 60 * 1000; // Máximo 3 horas de margen
 
-        const { data: todaySessions } = await supabase
-          .from('workout_sessions')
-          .select('user_id, started_at, total_volume_kg')
-          .in('user_id', friendIds)
-          .gte('started_at', todayStart.toISOString());
+        const trainingNow = enrichedFriends.filter(f => {
+          if (!f.is_active_training) return false;
+          if (!f.active_training_started_at) return true;
+          const started = new Date(f.active_training_started_at).getTime();
+          return (now - started) < maxActiveDurationMs;
+        });
 
-        if (todaySessions && todaySessions.length > 0) {
-          const activeUserIds = [...new Set(todaySessions.map(s => s.user_id))];
-          const trainingNow = enrichedFriends.filter(f => activeUserIds.includes(f.id));
-          set({ friendsTraining: trainingNow });
-        } else {
-          set({ friendsTraining: [] });
-        }
+        set({ friendsTraining: trainingNow });
       } else {
         set({ friends: [], friendsTraining: [] });
       }
@@ -694,21 +689,67 @@ export const useAppStore = create((set, get) => ({
   activeWorkoutSets: null,
   lastCompletedWorkout: null,
   
-  startWorkout: (workout) => set({ activeWorkout: { ...workout, startTime: Date.now() }, activeWorkoutSets: null }),
+  startWorkout: (workout) => {
+    const user = get().user;
+    const routineTitle = workout?.title || 'Entrenamiento';
+    set({ activeWorkout: { ...workout, startTime: Date.now() }, activeWorkoutSets: null });
+    
+    // Marcar usuario como activo en vivo en la base de datos
+    if (user?.id) {
+      supabase.from('users').update({
+        is_active_training: true,
+        active_routine_title: routineTitle,
+        active_training_started_at: new Date().toISOString()
+      }).eq('id', user.id).then(() => {});
+    }
+  },
   
-  finishWorkout: (summaryData) => set((state) => ({ 
-    // Mantenemos activeWorkout para que la pantalla anterior no explote al hacer la transición
-    lastCompletedWorkout: summaryData,
-    lifetimeVolumeKg: state.lifetimeVolumeKg + (parseFloat(summaryData?.volume) || 0)
-  })),
+  finishWorkout: (summaryData) => {
+    const user = get().user;
+    set((state) => ({ 
+      lastCompletedWorkout: summaryData,
+      lifetimeVolumeKg: state.lifetimeVolumeKg + (parseFloat(summaryData?.volume) || 0)
+    }));
+
+    // Desactivar estado en vivo
+    if (user?.id) {
+      supabase.from('users').update({
+        is_active_training: false,
+        active_routine_title: null,
+        active_training_started_at: null
+      }).eq('id', user.id).then(() => {});
+    }
+  },
   
-  clearWorkout: () => set({
-    activeWorkout: null,
-    activeWorkoutSets: null,
-    lastCompletedWorkout: null
-  }),
+  clearWorkout: () => {
+    const user = get().user;
+    set({
+      activeWorkout: null,
+      activeWorkoutSets: null,
+      lastCompletedWorkout: null
+    });
+
+    if (user?.id) {
+      supabase.from('users').update({
+        is_active_training: false,
+        active_routine_title: null,
+        active_training_started_at: null
+      }).eq('id', user.id).then(() => {});
+    }
+  },
   
-  cancelWorkout: () => set({ activeWorkout: null, activeWorkoutSets: null }),
+  cancelWorkout: () => {
+    const user = get().user;
+    set({ activeWorkout: null, activeWorkoutSets: null });
+
+    if (user?.id) {
+      supabase.from('users').update({
+        is_active_training: false,
+        active_routine_title: null,
+        active_training_started_at: null
+      }).eq('id', user.id).then(() => {});
+    }
+  },
   setActiveWorkoutSets: (setsOrUpdater) => set((state) => ({
     activeWorkoutSets: typeof setsOrUpdater === 'function' 
       ? setsOrUpdater(state.activeWorkoutSets) 

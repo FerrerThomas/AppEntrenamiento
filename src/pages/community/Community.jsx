@@ -169,13 +169,13 @@ export default function Community() {
       {/* ========================================================================= */}
       {activeTab === 'friends' && (
         <div className="space-y-6">
-          {/* Amigos entrenando hoy */}
+          {/* Amigos entrenando en vivo */}
           {friendsTraining.length > 0 && (
-            <div className="bg-gradient-to-r from-primary/15 to-transparent border border-primary/40 rounded-3xl p-4 shadow-lg">
+            <div className="bg-gradient-to-r from-primary/15 via-primary/5 to-transparent border border-primary/40 rounded-3xl p-4 shadow-lg">
               <div className="flex items-center space-x-2 mb-3">
                 <div className="w-2.5 h-2.5 rounded-full bg-primary animate-ping"></div>
                 <h3 className="font-extrabold text-sm text-primary uppercase tracking-wider flex items-center">
-                  <Flame size={16} className="mr-1.5" /> Entrenando Hoy ({friendsTraining.length})
+                  <Flame size={16} className="mr-1.5" /> Entrenando en Vivo ({friendsTraining.length})
                 </h3>
               </div>
 
@@ -184,16 +184,27 @@ export default function Community() {
                   <div 
                     key={friend.id}
                     onClick={() => navigate(`/profile/${friend.id}`)}
-                    className="flex items-center justify-between p-2.5 bg-[#141416]/80 rounded-2xl border border-surface-2 cursor-pointer hover:border-primary transition-all"
+                    className="flex items-center justify-between p-3 bg-[#141416]/90 rounded-2xl border border-surface-2 cursor-pointer hover:border-primary transition-all active:scale-[0.99] group"
                   >
-                    <div className="flex items-center space-x-3">
-                      <img src={friend.avatar_url || `https://ui-avatars.com/api/?name=${friend.username}`} className="w-10 h-10 rounded-full object-cover border border-primary" />
-                      <div>
-                        <p className="font-bold text-sm text-white">{friend.username}</p>
-                        <p className="text-[11px] text-gray-400">Activo recientemente</p>
+                    <div className="flex items-center space-x-3 min-w-0 pr-2">
+                      <div className="relative">
+                        <img 
+                          src={friend.avatar_url || `https://ui-avatars.com/api/?name=${friend.username}`} 
+                          className="w-10 h-10 rounded-full object-cover border border-primary" 
+                          alt={friend.username}
+                        />
+                        <span className="w-3 h-3 rounded-full bg-primary border-2 border-[#141416] absolute -bottom-0.5 -right-0.5 animate-pulse"></span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-white group-hover:text-primary transition-colors truncate">
+                          {friend.username}
+                        </p>
+                        <p className="text-[11px] text-primary/90 font-medium truncate">
+                          {friend.active_routine_title ? `Entrenando: ${friend.active_routine_title}` : 'En sesión activa'}
+                        </p>
                       </div>
                     </div>
-                    <span className="text-xs text-primary font-bold">Ver perfil →</span>
+                    <span className="text-xs text-primary font-bold shrink-0">Ver perfil →</span>
                   </div>
                 ))}
               </div>
