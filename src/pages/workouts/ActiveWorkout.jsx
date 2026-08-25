@@ -9,6 +9,7 @@ export default function ActiveWorkout() {
   const user = useAppStore((state) => state.user);
   const activeWorkout = useAppStore((state) => state.activeWorkout);
   const finishWorkout = useAppStore((state) => state.finishWorkout);
+  const cancelWorkout = useAppStore((state) => state.cancelWorkout);
   const getPreviousWorkout = useAppStore((state) => state.getPreviousWorkout);
   const getCurrentPRs = useAppStore((state) => state.getCurrentPRs);
   const currentPRs = useAppStore((state) => state.currentPRs);
@@ -19,6 +20,7 @@ export default function ActiveWorkout() {
   const [previousData, setPreviousData] = useState({});
   const [localPRs, setLocalPRs] = useState({});
   const [isFinishing, setIsFinishing] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
   const [toast, setToast] = useState(null);
@@ -319,9 +321,9 @@ export default function ActiveWorkout() {
         </div>
       )}
 
-      <header className="sticky top-0 bg-[#0a0a0a] pt-2 pb-4 z-10 flex justify-between items-center border-b border-surface-2">
+      <header className="sticky top-0 bg-[#0a0a0a]/90 backdrop-blur-md pt-2 pb-4 z-10 flex justify-between items-center border-b border-surface-2">
         <div className="flex items-center space-x-2">
-          <button onClick={() => navigate('/workouts')} className="text-gray-400 p-1">
+          <button onClick={() => navigate('/workouts')} className="text-gray-400 p-1 hover:text-white transition-colors">
             <ChevronDown size={24} />
           </button>
           <div>
@@ -330,14 +332,66 @@ export default function ActiveWorkout() {
           </div>
         </div>
 
-        <button
-          onClick={handleFinishWorkout}
-          disabled={isFinishing}
-          className="bg-primary text-surface-0 font-bold px-5 py-2 rounded-full text-sm hover:opacity-90 transition-opacity"
-        >
-          {isFinishing ? 'Guardando...' : 'Terminar'}
-        </button>
+        <div className="flex items-center space-x-2">
+          {/* Botón Cancelar/Eliminar Sesión */}
+          <button
+            type="button"
+            onClick={() => setShowCancelConfirm(true)}
+            className="p-2.5 rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/20 active:scale-95 flex items-center justify-center shadow-sm"
+            title="Cancelar entrenamiento"
+          >
+            <Trash2 size={18} />
+          </button>
+
+          {/* Botón Terminar */}
+          <button
+            type="button"
+            onClick={handleFinishWorkout}
+            disabled={isFinishing}
+            className="bg-primary text-surface-0 font-bold px-5 py-2.5 rounded-full text-sm hover:opacity-90 transition-opacity active:scale-95 shadow-[0_0_12px_rgba(204,255,0,0.3)]"
+          >
+            {isFinishing ? 'Guardando...' : 'Terminar'}
+          </button>
+        </div>
       </header>
+
+      {/* Modal de Confirmación de Cancelación */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#18181a] border border-red-500/30 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto text-red-400">
+              <Trash2 size={28} />
+            </div>
+
+            <div>
+              <h4 className="text-lg font-black text-white">¿Cancelar entrenamiento?</h4>
+              <p className="text-xs text-gray-300 mt-1.5 leading-relaxed">
+                Se descartarán todas las series y kilos registrados en esta sesión.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 py-3 rounded-xl bg-surface-2 text-white font-bold text-xs hover:bg-surface-2/80 transition-colors"
+              >
+                Continuar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  cancelWorkout();
+                  navigate('/workouts');
+                }}
+                className="flex-1 py-3 rounded-xl bg-red-600 text-white font-black text-xs hover:bg-red-700 transition-colors shadow-lg"
+              >
+                Sí, cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between items-center py-4 border-b border-surface-2 mb-4 text-center">
         <div>
