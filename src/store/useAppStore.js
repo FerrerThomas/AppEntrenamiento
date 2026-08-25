@@ -204,6 +204,58 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  // =========================================================================
+  // REALTIME / SINCRONIZACIÓN EN VIVO DE ACTIVIDAD Y AMIGOS
+  // =========================================================================
+  subscribeToLiveSocialActivity: () => {
+    const user = get().user;
+    if (!user) return () => {};
+
+    // 1. Carga inicial
+    get().fetchFriends();
+    get().fetchPendingFollowRequests();
+
+    // 2. Suscripción a Realtime Channel en Supabase
+    const channel = supabase
+      .channel('live-social-activity')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'users' },
+        () => {
+          get().fetchFriends();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'follow_requests' },
+        () => {
+          get().fetchFriends();
+          get().fetchPendingFollowRequests();
+        }
+      )
+      .subscribe();
+
+    // 3. Fallback de refresco automático cada 15 segundos y al volver a la app (visibilidad)
+    const intervalId = setInterval(() => {
+      get().fetchFriends();
+    }, 15000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        get().fetchFriends();
+        get().fetchPendingFollowRequests();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Función de limpieza al desmontar la vista
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  },
+
   getFollowStatus: async (targetUserId) => {
     const user = get().user;
     if (!user || !targetUserId || user.id === targetUserId) return 'self';

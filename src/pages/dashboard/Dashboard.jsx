@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, ArrowRight, Maximize2, Heart, MessageSquare, Trophy, Users, Flame, Shield, Sparkles } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -17,17 +18,18 @@ export default function Dashboard() {
   const friendsTraining = useAppStore((state) => state.friendsTraining) || [];
   const pendingRequests = useAppStore((state) => state.pendingFollowRequests) || [];
   
-  const fetchFriends = useAppStore((state) => state.fetchFriends);
-  const fetchPendingFollowRequests = useAppStore((state) => state.fetchPendingFollowRequests);
+  const subscribeToLiveSocialActivity = useAppStore((state) => state.subscribeToLiveSocialActivity);
 
   const [likes, setLikes] = useState({ 1: 12, 2: 24 });
   const [hasLiked, setHasLiked] = useState({ 1: false, 2: true });
   const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
 
   useEffect(() => {
-    fetchFriends();
-    fetchPendingFollowRequests();
-  }, [fetchFriends, fetchPendingFollowRequests]);
+    const unsubscribe = subscribeToLiveSocialActivity();
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [subscribeToLiveSocialActivity]);
 
   const toggleLike = (postId) => {
     setHasLiked(prev => {
@@ -130,41 +132,47 @@ export default function Dashboard() {
         totalVolumeKg={lifetimeVolumeKg} 
       />
 
-      {/* Barra de Amigos Entrenando (Solo visible si hay amigos activos) */}
-      {trainingCount > 0 && (
-        <div 
-          onClick={() => navigate('/community')}
-          className="bg-surface-1 border border-primary/40 rounded-2xl p-3.5 flex items-center justify-between mb-6 cursor-pointer hover:border-primary transition-all active:scale-[0.99] shadow-md group animate-in fade-in duration-300"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="flex -space-x-2">
-              {friendsTraining.slice(0, 3).map((f) => (
-                <img 
-                  key={f.id} 
-                  src={f.avatar_url || `https://ui-avatars.com/api/?name=${f.username}`} 
-                  className="w-8 h-8 rounded-full border-2 border-surface-1 object-cover" 
-                  alt={f.username}
-                />
-              ))}
-              {trainingCount > 3 && (
-                <div className="w-8 h-8 rounded-full bg-surface-2 border-2 border-surface-1 flex items-center justify-center text-xs font-bold z-10 text-primary">
-                  +{trainingCount - 3}
-                </div>
-              )}
+      {/* Barra de Amigos Entrenando en Vivo (Aparece y desaparece en Realtime) */}
+      <AnimatePresence>
+        {trainingCount > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0, y: -10 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -10 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            onClick={() => navigate('/community')}
+            className="bg-surface-1 border border-primary/40 rounded-2xl p-3.5 flex items-center justify-between mb-6 cursor-pointer hover:border-primary transition-all active:scale-[0.99] shadow-md group overflow-hidden"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="flex -space-x-2">
+                {friendsTraining.slice(0, 3).map((f) => (
+                  <img 
+                    key={f.id} 
+                    src={f.avatar_url || `https://ui-avatars.com/api/?name=${f.username}`} 
+                    className="w-8 h-8 rounded-full border-2 border-surface-1 object-cover" 
+                    alt={f.username}
+                  />
+                ))}
+                {trainingCount > 3 && (
+                  <div className="w-8 h-8 rounded-full bg-surface-2 border-2 border-surface-1 flex items-center justify-center text-xs font-bold z-10 text-primary">
+                    +{trainingCount - 3}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping"></span>
+                <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">
+                  {trainingCount} {trainingCount === 1 ? 'amigo entrenando' : 'amigos entrenando'}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping"></span>
-              <span className="text-sm font-bold text-white group-hover:text-primary transition-colors">
-                {trainingCount} {trainingCount === 1 ? 'amigo entrenando' : 'amigos entrenando'}
-              </span>
-            </div>
-          </div>
 
-          <button className="text-primary text-xs font-bold flex items-center group-hover:translate-x-0.5 transition-transform bg-primary/10 px-3 py-1.5 rounded-full">
-            Ver en vivo <ArrowRight size={14} className="ml-1" />
-          </button>
-        </div>
-      )}
+            <button className="text-primary text-xs font-bold flex items-center group-hover:translate-x-0.5 transition-transform bg-primary/10 px-3 py-1.5 rounded-full">
+              Ver en vivo <ArrowRight size={14} className="ml-1" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Workout Card */}
       <div className="relative rounded-[24px] overflow-hidden mb-6 p-5 flex flex-col justify-between min-h-[300px] border border-surface-2 shadow-[0_0_20px_rgba(204,255,0,0.05)] bg-surface-1">

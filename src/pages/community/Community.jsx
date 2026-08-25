@@ -46,8 +46,7 @@ export default function Community() {
   const friendsTraining = useAppStore((state) => state.friendsTraining) || [];
   const pendingRequests = useAppStore((state) => state.pendingFollowRequests) || [];
   
-  const fetchFriends = useAppStore((state) => state.fetchFriends);
-  const fetchPendingFollowRequests = useAppStore((state) => state.fetchPendingFollowRequests);
+  const subscribeToLiveSocialActivity = useAppStore((state) => state.subscribeToLiveSocialActivity);
   const acceptFollowRequest = useAppStore((state) => state.acceptFollowRequest);
   const rejectFollowRequest = useAppStore((state) => state.rejectFollowRequest);
   const sendFollowRequest = useAppStore((state) => state.sendFollowRequest);
@@ -60,9 +59,11 @@ export default function Community() {
   const [sentRequests, setSentRequests] = useState({});
 
   useEffect(() => {
-    fetchFriends();
-    fetchPendingFollowRequests();
-  }, [fetchFriends, fetchPendingFollowRequests]);
+    const unsubscribe = subscribeToLiveSocialActivity();
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [subscribeToLiveSocialActivity]);
 
   // Búsqueda en tiempo real
   useEffect(() => {
