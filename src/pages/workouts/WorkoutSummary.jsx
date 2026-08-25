@@ -125,7 +125,7 @@ export default function WorkoutSummary() {
         </div>
 
         <div className="flex justify-between text-[10px] text-gray-400 font-medium pt-1.5">
-          <span>{newLevelInfo.formattedTons} acumuladas</span>
+          <span>{newLevelInfo.formattedKg} acumulados</span>
           <span>Faltan {newLevelInfo.remainingKg.toLocaleString()} kg para Nv. {newLevelInfo.level + 1}</span>
         </div>
       </motion.div>

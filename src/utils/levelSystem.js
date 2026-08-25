@@ -1,4 +1,4 @@
-// Sistema de Niveles y Rangos de Prestigio por Tonelaje (Kilos Acumulados)
+// Sistema de Niveles y Rangos de Prestigio por Kilos Acumulados
 
 export const PRESTIGE_RANKS = [
   {
@@ -8,8 +8,6 @@ export const PRESTIGE_RANKS = [
     badge: '🛡️',
     minKg: 0,
     maxKg: 25000,
-    minTons: 0,
-    maxTons: 25,
     color: '#9e9e9e',
     textClass: 'text-gray-300',
     bgClass: 'bg-gray-500/15',
@@ -23,8 +21,6 @@ export const PRESTIGE_RANKS = [
     badge: '🥉',
     minKg: 25000,
     maxKg: 100000,
-    minTons: 25,
-    maxTons: 100,
     color: '#cd7f32',
     textClass: 'text-[#cd7f32]',
     bgClass: 'bg-[#cd7f32]/15',
@@ -38,8 +34,6 @@ export const PRESTIGE_RANKS = [
     badge: '🥈',
     minKg: 100000,
     maxKg: 300000,
-    minTons: 100,
-    maxTons: 300,
     color: '#e0e0e0',
     textClass: 'text-gray-200',
     bgClass: 'bg-gray-300/15',
@@ -53,8 +47,6 @@ export const PRESTIGE_RANKS = [
     badge: '🥇',
     minKg: 300000,
     maxKg: 750000,
-    minTons: 300,
-    maxTons: 750,
     color: '#ffcc00',
     textClass: 'text-[#ffcc00]',
     bgClass: 'bg-[#ffcc00]/15',
@@ -68,8 +60,6 @@ export const PRESTIGE_RANKS = [
     badge: '💎',
     minKg: 750000,
     maxKg: 1500000,
-    minTons: 750,
-    maxTons: 1500,
     color: '#00e5ff',
     textClass: 'text-[#00e5ff]',
     bgClass: 'bg-[#00e5ff]/15',
@@ -83,8 +73,6 @@ export const PRESTIGE_RANKS = [
     badge: '👑',
     minKg: 1500000,
     maxKg: 3500000,
-    minTons: 1500,
-    maxTons: 3500,
     color: '#b388ff',
     textClass: 'text-[#b388ff]',
     bgClass: 'bg-[#b388ff]/15',
@@ -98,8 +86,6 @@ export const PRESTIGE_RANKS = [
     badge: '🔥',
     minKg: 3500000,
     maxKg: Infinity,
-    minTons: 3500,
-    maxTons: Infinity,
     color: '#ccff00',
     textClass: 'text-primary',
     bgClass: 'bg-primary/15',
@@ -117,7 +103,18 @@ export function getKgForLevel(level) {
 }
 
 /**
- * Calcula el nivel actual, rango, porcentaje y detalles a partir del volumen total acumulado
+ * Formatea kilos a formato legible con separador de miles (ej. "142.500 kg")
+ */
+export function formatKg(kg = 0) {
+  const val = Math.max(0, Math.round(parseFloat(kg) || 0));
+  return `${val.toLocaleString()} kg`;
+}
+
+// Alias compatible
+export const formatTons = formatKg;
+
+/**
+ * Calcula el nivel actual, rango, porcentaje y detalles a partir de los kilos acumulados
  */
 export function calculateLevel(totalVolumeKg = 0) {
   const kg = Math.max(0, parseFloat(totalVolumeKg) || 0);
@@ -139,13 +136,12 @@ export function calculateLevel(totalVolumeKg = 0) {
     : 100;
 
   const rank = getPrestigeRank(kg);
-  const tons = (kg / 1000).toFixed(1);
 
   return {
     level,
     totalKg: Math.round(kg),
-    totalTons: parseFloat(tons),
-    formattedTons: formatTons(kg),
+    formattedKg: formatKg(kg),
+    formattedTons: formatKg(kg), // Compatible
     currentLevelMinKg,
     nextLevelKg,
     kgInCurrentLevel: Math.round(kgInCurrentLevel),
@@ -163,18 +159,6 @@ export function getPrestigeRank(totalVolumeKg = 0) {
   const kg = Math.max(0, parseFloat(totalVolumeKg) || 0);
   const found = PRESTIGE_RANKS.find(r => kg >= r.minKg && (r.maxKg === Infinity || kg < r.maxKg));
   return found || PRESTIGE_RANKS[0];
-}
-
-/**
- * Formatea kilos a toneladas legibles (ej. "14.2 t" o "1.450 kg")
- */
-export function formatTons(kg = 0) {
-  const val = Math.max(0, parseFloat(kg) || 0);
-  if (val >= 1000) {
-    const tons = val / 1000;
-    return `${tons >= 100 ? Math.round(tons).toLocaleString() : tons.toFixed(1)} t`;
-  }
-  return `${Math.round(val).toLocaleString()} kg`;
 }
 
 /**

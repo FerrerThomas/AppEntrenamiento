@@ -96,7 +96,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <p className="text-[11px] text-gray-400 font-medium">
-                {levelInfo.formattedTons} acumulados • Toca para ver rangos
+                {levelInfo.formattedKg} acumulados • Toca para ver rangos
               </p>
             </div>
           </div>

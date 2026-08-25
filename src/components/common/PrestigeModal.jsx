@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trophy, Flame, ChevronRight, Lock, CheckCircle2, Dumbbell } from 'lucide-react';
-import { getAllRanks, calculateLevel, formatTons } from '../../utils/levelSystem';
+import { getAllRanks, calculateLevel, formatKg } from '../../utils/levelSystem';
 
 export default function PrestigeModal({ isOpen, onClose, totalVolumeKg = 0 }) {
   if (!isOpen) return null;
@@ -28,7 +28,7 @@ export default function PrestigeModal({ isOpen, onClose, totalVolumeKg = 0 }) {
               </div>
               <div>
                 <h3 className="font-extrabold text-base text-white">Rangos de Prestigio</h3>
-                <p className="text-xs text-gray-400 font-medium">Basado en tu tonelaje acumulado</p>
+                <p className="text-xs text-gray-400 font-medium">Basado en tus kilos acumulados</p>
               </div>
             </div>
             <button
@@ -81,8 +81,8 @@ export default function PrestigeModal({ isOpen, onClose, totalVolumeKg = 0 }) {
 
               {/* Stat Footer */}
               <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs">
-                <span className="text-gray-400">Tonelaje Total Histórico:</span>
-                <span className="font-black text-white text-sm">{levelInfo.formattedTons}</span>
+                <span className="text-gray-400">Kilos Totales Históricos:</span>
+                <span className="font-black text-white text-sm">{levelInfo.formattedKg}</span>
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function PrestigeModal({ isOpen, onClose, totalVolumeKg = 0 }) {
               Camino de Prestigio
             </h4>
 
-            {ranks.map((r, idx) => {
+            {ranks.map((r) => {
               const isCurrent = r.id === currentRank.id;
               const isUnlocked = totalVolumeKg >= r.minKg;
 
@@ -126,9 +126,9 @@ export default function PrestigeModal({ isOpen, onClose, totalVolumeKg = 0 }) {
                       </div>
 
                       <p className="text-[11px] text-gray-400 mt-0.5">
-                        {r.maxTons === Infinity 
-                          ? `+${r.minTons.toLocaleString()} Toneladas` 
-                          : `${r.minTons.toLocaleString()} – ${r.maxTons.toLocaleString()} Toneladas`}
+                        {r.maxKg === Infinity 
+                          ? `+${r.minKg.toLocaleString()} kg` 
+                          : `${r.minKg.toLocaleString()} – ${r.maxKg.toLocaleString()} kg`}
                       </p>
                     </div>
                   </div>

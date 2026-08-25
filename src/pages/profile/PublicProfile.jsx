@@ -327,8 +327,8 @@ export default function PublicProfile() {
           <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2">
             <Flame size={18} />
           </div>
-          <p className="text-2xl font-black text-white">{levelInfo.formattedTons}</p>
-          <p className="text-xs text-gray-400 font-medium mt-0.5">Tonelaje Total</p>
+          <p className="text-2xl font-black text-white">{levelInfo.formattedKg}</p>
+          <p className="text-xs text-gray-400 font-medium mt-0.5">Kilos Totales</p>
         </div>
       </div>
 
