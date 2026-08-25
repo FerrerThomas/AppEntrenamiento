@@ -462,6 +462,161 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
+  // =========================================================================
+  // HISTORIAL DE ENTRENAMIENTOS Y ELIMINACIÓN DE SESIONES
+  // =========================================================================
+  workoutHistory: [],
+  isLoadingHistory: false,
+
+  fetchWorkoutHistory: async (userId) => {
+    const targetUserId = userId || get().user?.id;
+    if (!targetUserId) return [];
+    set({ isLoadingHistory: true });
+    try {
+      // 1. Obtener sesiones
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('workout_sessions')
+        .select(`
+          id,
+          user_id,
+          routine_id,
+          started_at,
+          ended_at,
+          total_volume_kg
+        `)
+        .eq('user_id', targetUserId)
+        .order('started_at', { ascending: false });
+
+      if (sessionsError) throw sessionsError;
+
+      if (!sessions || sessions.length === 0) {
+        set({ workoutHistory: [], isLoadingHistory: false });
+        return [];
+      }
+
+      // 2. Obtener nombres de rutinas si existen
+      const routineIds = [...new Set(sessions.map(s => s.routine_id).filter(Boolean))];
+      let routinesMap = {};
+      if (routineIds.length > 0) {
+        const { data: routinesData } = await supabase
+          .from('routines')
+          .select('id, title')
+          .in('id', routineIds);
+        if (routinesData) {
+          routinesData.forEach(r => {
+            routinesMap[r.id] = r.title;
+          });
+        }
+      }
+
+      // 3. Obtener sets y ejercicios de estas sesiones
+      const sessionIds = sessions.map(s => s.id);
+      const { data: sets, error: setsError } = await supabase
+        .from('workout_sets')
+        .select(`
+          id,
+          session_id,
+          exercise_id,
+          weight_kg,
+          reps,
+          is_pr,
+          exercises (
+            id,
+            name,
+            muscle_group
+          )
+        `)
+        .in('session_id', sessionIds);
+
+      const formattedHistory = sessions.map(sess => {
+        const sessionSets = (sets || []).filter(s => s.session_id === sess.id);
+        
+        // Agrupar sets por ejercicio
+        const exerciseMap = {};
+        let prCount = 0;
+
+        sessionSets.forEach(st => {
+          if (st.is_pr) prCount++;
+          const exId = st.exercise_id || 'unknown';
+          const exName = st.exercises?.name || 'Ejercicio';
+          const muscle = st.exercises?.muscle_group || 'General';
+
+          if (!exerciseMap[exId]) {
+            exerciseMap[exId] = {
+              id: exId,
+              name: exName,
+              muscle_group: muscle,
+              sets: []
+            };
+          }
+
+          exerciseMap[exId].sets.push({
+            id: st.id,
+            weight_kg: parseFloat(st.weight_kg) || 0,
+            reps: parseInt(st.reps) || 0,
+            is_pr: !!st.is_pr
+          });
+        });
+
+        // Calcular duración en minutos
+        let durationMinutes = 45;
+        if (sess.started_at && sess.ended_at) {
+          const diffMs = new Date(sess.ended_at) - new Date(sess.started_at);
+          durationMinutes = Math.max(1, Math.round(diffMs / 60000));
+        }
+
+        return {
+          id: sess.id,
+          title: routinesMap[sess.routine_id] || 'Entrenamiento Libre',
+          started_at: sess.started_at,
+          ended_at: sess.ended_at,
+          total_volume_kg: Math.round(parseFloat(sess.total_volume_kg) || 0),
+          durationMinutes,
+          totalSetsCount: sessionSets.length,
+          prsCount: prCount,
+          exercises: Object.values(exerciseMap)
+        };
+      });
+
+      set({ workoutHistory: formattedHistory, isLoadingHistory: false });
+      return formattedHistory;
+    } catch (e) {
+      console.error('Error fetching workout history:', e);
+      set({ isLoadingHistory: false });
+      return [];
+    }
+  },
+
+  deleteWorkoutSession: async (sessionId) => {
+    const user = get().user;
+    if (!sessionId || !user?.id) return;
+    try {
+      // 1. Borrar workout_sets asociados
+      await supabase.from('workout_sets').delete().eq('session_id', sessionId);
+
+      // 2. Borrar la sesión en Supabase
+      const { error } = await supabase.from('workout_sessions').delete().eq('id', sessionId);
+      if (error) throw error;
+
+      // 3. Actualización optimista de estado
+      set((state) => {
+        const updatedHistory = state.workoutHistory.filter(s => s.id !== sessionId);
+        const newLifetimeVol = updatedHistory.reduce((acc, s) => acc + (s.total_volume_kg || 0), 0);
+        return {
+          workoutHistory: updatedHistory,
+          lifetimeVolumeKg: newLifetimeVol
+        };
+      });
+
+      // 4. Recargar datos frescos del usuario y PRs
+      get().fetchUserProfile(user.id);
+      get().getCurrentPRs();
+    } catch (e) {
+      console.error('Error deleting workout session:', e);
+      throw e;
+    }
+  },
+
   // --- Rankings ---
   currentRanking: [],
   isRankingLoading: false,

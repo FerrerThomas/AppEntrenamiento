@@ -15,12 +15,20 @@ import {
   ChevronRight,
   User,
   Scale,
-  Ruler
+  Ruler,
+  Calendar,
+  Clock,
+  Trash2,
+  Activity,
+  Layers,
+  ChevronDown
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { calculateLevel } from '../../utils/levelSystem';
 import PrestigeModal from '../../components/common/PrestigeModal';
+import WorkoutDetailModal from '../../components/workouts/WorkoutDetailModal';
 
 function InstagramIcon({ size = 16, className = "" }) {
   return (
@@ -49,6 +57,18 @@ export default function Profile() {
   const logout = useAppStore((state) => state.logout);
   const navigate = useNavigate();
 
+  // Historial y PRs del Store
+  const workoutHistory = useAppStore((state) => state.workoutHistory);
+  const isLoadingHistory = useAppStore((state) => state.isLoadingHistory);
+  const fetchWorkoutHistory = useAppStore((state) => state.fetchWorkoutHistory);
+  const deleteWorkoutSession = useAppStore((state) => state.deleteWorkoutSession);
+  const currentPRs = useAppStore((state) => state.currentPRs);
+  const getCurrentPRs = useAppStore((state) => state.getCurrentPRs);
+
+  const [activeTab, setActiveTab] = useState('stats'); // 'stats' | 'history' | 'prs'
+  const [selectedWorkoutModal, setSelectedWorkoutModal] = useState(null);
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
+
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -71,7 +91,6 @@ export default function Profile() {
   const [stats, setStats] = useState({
     workoutsCount: 0,
     totalVolume: 0,
-    prsCount: 0,
   });
 
   useEffect(() => {
@@ -88,30 +107,33 @@ export default function Profile() {
     }
   }, [userProfile]);
 
-  // Cargar estadísticas del usuario
-  useEffect(() => {
-    const loadStats = async () => {
-      if (!user?.id) return;
-      try {
-        const { data: sessions } = await supabase
-          .from('workout_sessions')
-          .select('id, total_volume_kg')
-          .eq('user_id', user.id);
+  const loadStats = async () => {
+    if (!user?.id) return;
+    try {
+      const { data: sessions } = await supabase
+        .from('workout_sessions')
+        .select('id, total_volume_kg')
+        .eq('user_id', user.id);
 
-        if (sessions) {
-          const totalVol = sessions.reduce((acc, s) => acc + (parseFloat(s.total_volume_kg) || 0), 0);
-          setStats({
-            workoutsCount: sessions.length,
-            totalVolume: Math.round(totalVol),
-            prsCount: 0
-          });
-        }
-      } catch (e) {
-        console.error('Error loading stats:', e);
+      if (sessions) {
+        const totalVol = sessions.reduce((acc, s) => acc + (parseFloat(s.total_volume_kg) || 0), 0);
+        setStats({
+          workoutsCount: sessions.length,
+          totalVolume: Math.round(totalVol),
+        });
       }
-    };
-    loadStats();
-  }, [user]);
+    } catch (e) {
+      console.error('Error loading stats:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.id) {
+      loadStats();
+      fetchWorkoutHistory(user.id);
+      getCurrentPRs();
+    }
+  }, [user, fetchWorkoutHistory, getCurrentPRs]);
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
@@ -138,49 +160,86 @@ export default function Profile() {
           .upload(fileName, avatarFile, { upsert: true });
 
         if (!uploadError) {
-          const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+          const { data: publicUrlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(fileName);
           avatar_url = publicUrlData.publicUrl;
         }
       }
 
-      // 2. Limpiar instagram handle
-      const cleanInstagram = formData.instagram.trim().replace(/^@/, '');
-
-      // 3. Guardar en base de datos
+      // 2. Guardar datos en la tabla users
       await updateUserProfile({
         username: formData.username.trim(),
-        bio: formData.bio.trim(),
-        instagram: cleanInstagram || null,
+        bio: formData.bio.trim() || null,
+        instagram: formData.instagram.trim() ? `@${formData.instagram.trim().replace(/^@/, '')}` : null,
         social_link: formData.social_link.trim() || null,
-        weight_kg: parseFloat(formData.weight_kg) || null,
-        height_cm: parseFloat(formData.height_cm) || null,
-        avatar_url
+        weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : null,
+        height_cm: formData.height_cm ? parseFloat(formData.height_cm) : null,
+        avatar_url: avatar_url,
       });
 
       setIsEditOpen(false);
-    } catch (err) {
-      console.error('Error saving profile:', err);
+      setAvatarFile(null);
+    } catch (e) {
+      console.error('Error saving profile:', e);
+      alert('Error al guardar el perfil: ' + (e.message || 'Inténtalo de nuevo'));
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
+  };
+
+  const handleDeleteSession = async (sessionId) => {
+    setIsDeletingSession(true);
+    try {
+      await deleteWorkoutSession(sessionId);
+      await loadStats();
+      if (user?.id) {
+        await fetchWorkoutHistory(user.id);
+        await getCurrentPRs();
+      }
+    } catch (e) {
+      alert('Error al eliminar entrenamiento: ' + (e.message || e));
+    } finally {
+      setIsDeletingSession(false);
+    }
   };
 
   const cleanInsta = (userProfile?.instagram || '').replace(/^@/, '');
   const levelInfo = calculateLevel(stats.totalVolume);
   const rank = levelInfo.rank;
 
+  const formatDate = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleDateString('es-ES', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+  };
+
   return (
     <div className="px-4 pt-1 pb-32 flex-1 flex flex-col w-full text-white">
+      
       {/* Prestige Roadmap Modal */}
       <PrestigeModal 
         isOpen={isPrestigeOpen} 
         onClose={() => setIsPrestigeOpen(false)} 
         totalVolumeKg={stats.totalVolume} 
+      />
+
+      {/* Workout Detail & Delete Modal */}
+      <WorkoutDetailModal
+        isOpen={!!selectedWorkoutModal}
+        onClose={() => setSelectedWorkoutModal(null)}
+        workout={selectedWorkoutModal}
+        onDelete={handleDeleteSession}
+        isDeleting={isDeletingSession}
       />
 
       {/* Header */}
@@ -196,7 +255,7 @@ export default function Profile() {
       </header>
 
       {/* Main Profile Card */}
-      <div className="bg-[#1c1c1e] border border-surface-2 rounded-3xl p-6 mb-6 text-center relative overflow-hidden shadow-xl">
+      <div className="bg-[#1c1c1e] border border-surface-2 rounded-3xl p-6 mb-5 text-center relative overflow-hidden shadow-xl">
         <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-primary/10 to-transparent"></div>
         
         {/* Avatar */}
@@ -218,7 +277,7 @@ export default function Profile() {
         {/* Prestige & Level Badge */}
         <div 
           onClick={() => setIsPrestigeOpen(true)}
-          className="inline-flex items-center space-x-2 my-2.5 px-3.5 py-1 rounded-full bg-[#121214] border border-surface-2 cursor-pointer hover:border-primary/60 transition-all z-10 relative group"
+          className="inline-flex items-center space-x-2 my-2 px-3.5 py-1 rounded-full bg-[#121214] border border-surface-2 cursor-pointer hover:border-primary/60 transition-all z-10 relative group"
         >
           <span className="text-sm font-black text-white">Lv. {levelInfo.level}</span>
           <span className="text-gray-500">•</span>
@@ -280,49 +339,228 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Fitness Metrics */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-            <Scale size={20} />
-          </div>
-          <div>
-            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Peso</p>
-            <p className="text-lg font-black text-white">{userProfile?.weight_kg ? `${userProfile.weight_kg} kg` : '-'}</p>
-          </div>
-        </div>
+      {/* ========================================================================= */}
+      {/* SEGMENTED TAB NAVIGATION */}
+      {/* ========================================================================= */}
+      <div className="flex bg-[#1c1c1e] border border-surface-2 rounded-[16px] p-1 mb-5 relative">
+        <button
+          onClick={() => setActiveTab('stats')}
+          className={`flex-1 py-2 rounded-[12px] text-xs font-black transition-colors relative z-10 flex items-center justify-center space-x-1.5 ${
+            activeTab === 'stats' ? 'text-black' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          {activeTab === 'stats' && (
+            <motion.div
+              layoutId="profileTabPill"
+              className="absolute inset-0 bg-primary rounded-[12px] shadow-[0_0_12px_rgba(204,255,0,0.35)] -z-10"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <Activity size={14} />
+          <span>Datos</span>
+        </button>
 
-        <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-            <Ruler size={20} />
-          </div>
-          <div>
-            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Altura</p>
-            <p className="text-lg font-black text-white">{userProfile?.height_cm ? `${userProfile.height_cm} cm` : '-'}</p>
-          </div>
-        </div>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`flex-1 py-2 rounded-[12px] text-xs font-black transition-colors relative z-10 flex items-center justify-center space-x-1.5 ${
+            activeTab === 'history' ? 'text-black' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          {activeTab === 'history' && (
+            <motion.div
+              layoutId="profileTabPill"
+              className="absolute inset-0 bg-primary rounded-[12px] shadow-[0_0_12px_rgba(204,255,0,0.35)] -z-10"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <Calendar size={14} />
+          <span>Historial ({workoutHistory.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('prs')}
+          className={`flex-1 py-2 rounded-[12px] text-xs font-black transition-colors relative z-10 flex items-center justify-center space-x-1.5 ${
+            activeTab === 'prs' ? 'text-black' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          {activeTab === 'prs' && (
+            <motion.div
+              layoutId="profileTabPill"
+              className="absolute inset-0 bg-primary rounded-[12px] shadow-[0_0_12px_rgba(204,255,0,0.35)] -z-10"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <Trophy size={14} />
+          <span>Récords</span>
+        </button>
       </div>
 
-      {/* Stats Summary */}
-      <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-5 mb-8">
-        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Estadísticas de Entrenamiento</h3>
-        
-        <div className="grid grid-cols-2 gap-4 text-center">
-          <div className="p-3 bg-[#141416] rounded-xl border border-surface-2/60">
-            <p className="text-2xl font-black text-primary mb-0.5">{stats.workoutsCount}</p>
-            <p className="text-xs text-gray-400 font-medium">Sesiones Realizadas</p>
+      {/* ========================================================================= */}
+      {/* TAB 1: HISTORIAL DE ENTRENAMIENTOS */}
+      {/* ========================================================================= */}
+      {activeTab === 'history' && (
+        <div className="space-y-3 mb-6">
+          {isLoadingHistory ? (
+            <div className="text-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent mx-auto mb-2"></div>
+              <p className="text-xs text-gray-400">Cargando tus entrenamientos...</p>
+            </div>
+          ) : workoutHistory.length === 0 ? (
+            <div className="bg-[#1c1c1e] border border-surface-2 rounded-3xl p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-surface-2 flex items-center justify-center text-gray-500 mx-auto mb-3">
+                <Dumbbell size={28} />
+              </div>
+              <h4 className="font-bold text-base mb-1">Sin entrenamientos guardados</h4>
+              <p className="text-xs text-gray-400 mb-5 leading-relaxed">
+                Tus sesiones terminadas aparecerán aquí con el detalle de kilos, ejercicios y PRs alcanzados.
+              </p>
+              <Button onClick={() => navigate('/workouts')} className="py-3 text-sm">
+                Ir a Entrenar
+              </Button>
+            </div>
+          ) : (
+            workoutHistory.map((sess) => (
+              <div
+                key={sess.id}
+                onClick={() => setSelectedWorkoutModal(sess)}
+                className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 cursor-pointer hover:border-primary/50 transition-all active:scale-[0.99] shadow-md group"
+              >
+                <div className="flex items-start justify-between mb-2.5">
+                  <div>
+                    <span className="text-[11px] text-gray-400 font-bold flex items-center space-x-1 mb-0.5">
+                      <Calendar size={12} className="text-primary" />
+                      <span>{formatDate(sess.started_at)}</span>
+                      <span>•</span>
+                      <span>{sess.durationMinutes} min</span>
+                    </span>
+                    <h4 className="font-black text-base text-white group-hover:text-primary transition-colors">
+                      {sess.title}
+                    </h4>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-sm font-black text-primary block">
+                      {sess.total_volume_kg.toLocaleString()} kg
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">
+                      {sess.totalSetsCount} series
+                    </span>
+                  </div>
+                </div>
+
+                {/* PRs badge & Exercises Preview */}
+                <div className="flex items-center justify-between pt-2 border-t border-surface-2/60 text-xs">
+                  <div className="flex items-center space-x-2 truncate pr-2">
+                    {sess.prsCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 font-black text-[10px] flex items-center space-x-1 shrink-0">
+                        <Trophy size={11} />
+                        <span>{sess.prsCount} PR{sess.prsCount > 1 ? 's' : ''}</span>
+                      </span>
+                    )}
+                    <span className="text-gray-400 truncate text-[11px]">
+                      {sess.exercises.map(e => e.name).slice(0, 3).join(', ')}
+                      {sess.exercises.length > 3 ? ` +${sess.exercises.length - 3}` : ''}
+                    </span>
+                  </div>
+
+                  <span className="text-primary text-xs font-bold shrink-0 flex items-center group-hover:translate-x-0.5 transition-transform">
+                    Ver detalle <ChevronRight size={14} className="ml-0.5" />
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: RÉCORDS PERSONALES (PRs) */}
+      {/* ========================================================================= */}
+      {activeTab === 'prs' && (
+        <div className="space-y-3 mb-6">
+          {currentPRs.length === 0 ? (
+            <div className="bg-[#1c1c1e] border border-surface-2 rounded-3xl p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-surface-2 flex items-center justify-center text-yellow-500 mx-auto mb-3">
+                <Trophy size={28} />
+              </div>
+              <h4 className="font-bold text-base mb-1">Aún no hay récords registrados</h4>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Completa entrenamientos para registrar tus 1RM máximos y récords de volumen por ejercicio.
+              </p>
+            </div>
+          ) : (
+            currentPRs.map((pr, idx) => (
+              <div key={idx} className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 flex items-center justify-between shadow-md">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-yellow-500/10 text-yellow-400 flex items-center justify-center shrink-0 border border-yellow-500/20">
+                    <Trophy size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white">{pr.exercise_name || 'Ejercicio'}</h4>
+                    <p className="text-[11px] text-gray-400 uppercase font-medium">{pr.muscle_group || 'General'}</p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-lg font-black text-primary">{Math.round(pr.max_1rm || pr.max_weight_kg || 0)} kg</span>
+                  <span className="text-[10px] text-gray-400 block font-bold">1RM Estimado</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: ESTADÍSTICAS Y DATOS */}
+      {/* ========================================================================= */}
+      {activeTab === 'stats' && (
+        <div className="space-y-4 mb-6">
+          {/* Fitness Metrics */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <Scale size={20} />
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Peso</p>
+                <p className="text-lg font-black text-white">{userProfile?.weight_kg ? `${userProfile.weight_kg} kg` : '-'}</p>
+              </div>
+            </div>
+
+            <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <Ruler size={20} />
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Altura</p>
+                <p className="text-lg font-black text-white">{userProfile?.height_cm ? `${userProfile.height_cm} cm` : '-'}</p>
+              </div>
+            </div>
           </div>
-          <div className="p-3 bg-[#141416] rounded-xl border border-surface-2/60">
-            <p className="text-2xl font-black text-white mb-0.5">{stats.totalVolume.toLocaleString()}</p>
-            <p className="text-xs text-gray-400 font-medium">Volumen Total (kg)</p>
+
+          {/* Stats Summary */}
+          <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-5">
+            <h3 className="text-xs font-black text-gray-400 uppercase tracking-wider mb-4">Resumen Histórico</h3>
+            
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div className="p-3 bg-[#141416] rounded-xl border border-surface-2/60">
+                <p className="text-2xl font-black text-primary mb-0.5">{stats.workoutsCount}</p>
+                <p className="text-xs text-gray-400 font-medium">Sesiones Realizadas</p>
+              </div>
+              <div className="p-3 bg-[#141416] rounded-xl border border-surface-2/60">
+                <p className="text-2xl font-black text-white mb-0.5">{levelInfo.formattedKg}</p>
+                <p className="text-xs text-gray-400 font-medium">Kilos Totales</p>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Logout Button */}
       <Button 
         variant="secondary" 
-        className="w-full py-4 text-left justify-start border-red-500/20 bg-red-500/5 hover:bg-red-500/10" 
+        className="w-full py-4 text-left justify-start border-red-500/20 bg-red-500/5 hover:bg-red-500/10 mt-2 mb-8" 
         onClick={handleLogout}
       >
         <LogOut size={20} className="mr-3 text-red-400" /> 
@@ -348,21 +586,18 @@ export default function Profile() {
               <button 
                 onClick={handleSaveProfile}
                 disabled={isSaving || !formData.username.trim()}
-                className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors ${
-                  formData.username.trim() && !isSaving ? 'bg-primary text-surface-0' : 'bg-[#2c2c2e] text-gray-500'
-                }`}
+                className="text-primary text-[17px] font-bold disabled:opacity-50"
               >
-                {isSaving ? 'Guardando...' : 'Guardar'}
+                {isSaving ? 'Guardando...' : 'Listo'}
               </button>
             </header>
 
-            {/* Scrollable Form Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5 pb-24">
-              
-              {/* Avatar Selector */}
-              <div className="flex flex-col items-center justify-center p-4 bg-[#1c1c1e] rounded-2xl border border-surface-2">
-                <div className="relative mb-2">
-                  <div className="w-24 h-24 rounded-full border-2 border-primary overflow-hidden bg-surface-2 shadow-glow">
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Avatar Picker */}
+              <div className="flex flex-col items-center">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full border-2 border-primary overflow-hidden bg-surface-2 shadow-lg">
                     {avatarPreview ? (
                       <img src={avatarPreview} alt="Preview" className="w-full h-full object-cover" />
                     ) : (
@@ -371,122 +606,98 @@ export default function Profile() {
                       </div>
                     )}
                   </div>
+                  <button 
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute bottom-0 right-0 p-2 bg-primary text-black rounded-full shadow-md hover:opacity-90 transition-opacity"
+                  >
+                    <Camera size={16} />
+                  </button>
                 </div>
-
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  className="hidden"
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleAvatarChange} 
+                  accept="image/*" 
+                  className="hidden" 
                 />
-
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center space-x-2 text-xs font-bold text-primary hover:underline mt-1"
-                >
-                  <Camera size={15} />
-                  <span>Cambiar foto de perfil</span>
-                </button>
+                <span className="text-xs text-gray-400 mt-2 font-medium">Cambiar foto de perfil</span>
               </div>
 
-              {/* Nombre de Usuario */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Nombre de Usuario <span className="text-primary">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Tu nombre o alias"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl p-3.5 text-white font-semibold text-sm focus:outline-none focus:border-primary"
-                />
-              </div>
-
-              {/* Biografía */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Biografía / Descripción
-                </label>
-                <textarea
-                  rows={3}
-                  maxLength={160}
-                  placeholder="Cuéntale a la comunidad tus metas o disciplina favorita (ej: Powerlifting & Calistenia 🏋️‍♂️)"
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl p-3.5 text-white text-sm focus:outline-none focus:border-primary resize-none placeholder-gray-600"
-                />
-                <p className="text-[11px] text-gray-500 text-right">{formData.bio.length}/160</p>
-              </div>
-
-              {/* Instagram */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center space-x-1.5">
-                  <InstagramIcon size={14} className="text-[#fcb045]" />
-                  <span>Usuario de Instagram</span>
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-gray-500 font-bold text-sm">@</span>
-                  <input
-                    type="text"
-                    placeholder="usuario"
-                    value={formData.instagram}
-                    onChange={(e) => setFormData({ ...formData, instagram: e.target.value.replace(/^@/, '') })}
-                    className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl py-3.5 pl-8 pr-3.5 text-white font-semibold text-sm focus:outline-none focus:border-primary"
-                  />
-                </div>
-                <p className="text-[11px] text-gray-500">
-                  Aparecerá en tu perfil para que otros atletas puedan ver tus redes.
-                </p>
-              </div>
-
-              {/* Link / Red Social Adicional */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center space-x-1.5">
-                  <Globe size={14} className="text-primary" />
-                  <span>Enlace Web o Red Social Adicional</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="tiktok.com/@tu_usuario o youtube.com/..."
-                  value={formData.social_link}
-                  onChange={(e) => setFormData({ ...formData, social_link: e.target.value })}
-                  className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl p-3.5 text-white text-sm focus:outline-none focus:border-primary"
-                />
-              </div>
-
-              {/* Peso y Altura */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                    Peso (kg)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="75.0"
-                    value={formData.weight_kg}
-                    onChange={(e) => setFormData({ ...formData, weight_kg: e.target.value })}
-                    className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl p-3.5 text-white font-semibold text-sm focus:outline-none focus:border-primary"
+              {/* Form Fields */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Nombre de Usuario *</label>
+                  <input 
+                    type="text" 
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    placeholder="Ej. Juan Pérez"
+                    className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-primary"
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                    Altura (cm)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="178"
-                    value={formData.height_cm}
-                    onChange={(e) => setFormData({ ...formData, height_cm: e.target.value })}
-                    className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl p-3.5 text-white font-semibold text-sm focus:outline-none focus:border-primary"
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Biografía Corta</label>
+                  <textarea 
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    placeholder="Escribe algo sobre tus metas, disciplinas o lema..."
+                    rows={2}
+                    className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-primary resize-none"
                   />
                 </div>
-              </div>
 
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Usuario de Instagram</label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-4 text-gray-400 font-bold">@</span>
+                    <input 
+                      type="text" 
+                      value={formData.instagram}
+                      onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
+                      placeholder="tu_usuario"
+                      className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl pl-9 pr-4 py-3 text-white text-base focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Enlace Personal / Web</label>
+                  <input 
+                    type="url" 
+                    value={formData.social_link}
+                    onChange={(e) => setFormData({ ...formData, social_link: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Peso (kg)</label>
+                    <input 
+                      type="number" 
+                      step="0.1"
+                      value={formData.weight_kg}
+                      onChange={(e) => setFormData({ ...formData, weight_kg: e.target.value })}
+                      placeholder="75.0"
+                      className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Altura (cm)</label>
+                    <input 
+                      type="number" 
+                      value={formData.height_cm}
+                      onChange={(e) => setFormData({ ...formData, height_cm: e.target.value })}
+                      placeholder="178"
+                      className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

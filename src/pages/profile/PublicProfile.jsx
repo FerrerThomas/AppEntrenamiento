@@ -15,11 +15,16 @@ import {
   UserCheck,
   UserX,
   Clock,
-  Check
+  Check,
+  Calendar,
+  ChevronRight,
+  Lock
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import Button from '../../components/ui/Button';
 import { calculateLevel } from '../../utils/levelSystem';
 import PrestigeModal from '../../components/common/PrestigeModal';
+import WorkoutDetailModal from '../../components/workouts/WorkoutDetailModal';
 
 function InstagramIcon({ size = 16, className = "" }) {
   return (
@@ -50,14 +55,17 @@ export default function PublicProfile() {
   const getFollowStatus = useAppStore((state) => state.getFollowStatus);
   const sendFollowRequest = useAppStore((state) => state.sendFollowRequest);
   const cancelFollowRequest = useAppStore((state) => state.cancelFollowRequest);
-  const acceptFollowRequest = useAppStore((state) => state.acceptFollowRequest);
-  const rejectFollowRequest = useAppStore((state) => state.rejectFollowRequest);
+  const fetchWorkoutHistory = useAppStore((state) => state.fetchWorkoutHistory);
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [followStatus, setFollowStatus] = useState('loading'); // 'loading', 'none', 'pending_sent', 'pending_received', 'following', 'self'
   const [actionLoading, setActionLoading] = useState(false);
   const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('stats'); // 'stats' | 'history' | 'prs'
+  const [userWorkouts, setUserWorkouts] = useState([]);
+  const [isLoadingWorkouts, setIsLoadingWorkouts] = useState(false);
+  const [selectedWorkoutModal, setSelectedWorkoutModal] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -74,6 +82,9 @@ export default function PublicProfile() {
             setFollowStatus(status);
           }
         }
+
+        // Cargar historial del atleta
+        setIsWorkoutsLoading();
       } catch (err) {
         console.error('Error loading public profile:', err);
       } finally {
@@ -81,10 +92,22 @@ export default function PublicProfile() {
       }
     };
 
+    const setIsWorkoutsLoading = async () => {
+      setIsLoadingWorkouts(true);
+      try {
+        const history = await fetchWorkoutHistory(profileUserId);
+        setUserWorkouts(history || []);
+      } catch (e) {
+        console.error('Error loading athlete history:', e);
+      } finally {
+        setIsLoadingWorkouts(false);
+      }
+    };
+
     if (profileUserId) {
       loadData();
     }
-  }, [profileUserId, currentUser, fetchPublicProfile, getFollowStatus]);
+  }, [profileUserId, currentUser, fetchPublicProfile, getFollowStatus, fetchWorkoutHistory]);
 
   const handleSendFollow = async () => {
     setActionLoading(true);
@@ -108,6 +131,16 @@ export default function PublicProfile() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const formatDate = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return date.toLocaleDateString('es-ES', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
   };
 
   if (loading) {
@@ -149,6 +182,14 @@ export default function PublicProfile() {
         totalVolumeKg={profile.totalVolume || 0} 
       />
 
+      {/* Modal de Detalle de Entrenamiento (Solo lectura) */}
+      <WorkoutDetailModal
+        isOpen={!!selectedWorkoutModal}
+        onClose={() => setSelectedWorkoutModal(null)}
+        workout={selectedWorkoutModal}
+        readOnly={true}
+      />
+
       {/* Header Sticky */}
       <header className="flex items-center justify-between mb-4 pt-1 sticky top-0 bg-[#0a0a0a]/90 backdrop-blur-md z-10 pb-2 border-b border-surface-2/60">
         <button 
@@ -162,7 +203,7 @@ export default function PublicProfile() {
       </header>
 
       {/* Main Athlete Card */}
-      <div className="bg-[#1c1c1e] border border-surface-2 rounded-3xl p-6 mb-6 text-center relative overflow-hidden shadow-xl">
+      <div className="bg-[#1c1c1e] border border-surface-2 rounded-3xl p-6 mb-5 text-center relative overflow-hidden shadow-xl">
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-primary/15 via-primary/5 to-transparent"></div>
 
         {/* Avatar */}
@@ -242,31 +283,6 @@ export default function PublicProfile() {
               </button>
             )}
 
-            {followStatus === 'pending_received' && (
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={async () => {
-                    setActionLoading(true);
-                    setFollowStatus('following');
-                    setActionLoading(false);
-                  }}
-                  className="px-4 py-2 rounded-full bg-primary text-surface-0 font-bold text-xs hover:opacity-90 transition-all active:scale-95"
-                >
-                  ✓ Aceptar Solicitud
-                </button>
-                <button
-                  onClick={async () => {
-                    setActionLoading(true);
-                    setFollowStatus('none');
-                    setActionLoading(false);
-                  }}
-                  className="px-3 py-2 rounded-full bg-[#2c2c2e] text-gray-400 font-semibold text-xs"
-                >
-                  Rechazar
-                </button>
-              </div>
-            )}
-
             {followStatus === 'none' && (
               <button
                 onClick={handleSendFollow}
@@ -313,49 +329,196 @@ export default function PublicProfile() {
         </div>
       </div>
 
-      {/* Stats Summary */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 text-center">
-          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2">
-            <Activity size={18} />
-          </div>
-          <p className="text-2xl font-black text-primary">{profile.totalWorkouts || 0}</p>
-          <p className="text-xs text-gray-400 font-medium mt-0.5">Entrenamientos</p>
-        </div>
+      {/* ========================================================================= */}
+      {/* SEGMENTED TAB NAVIGATION */}
+      {/* ========================================================================= */}
+      <div className="flex bg-[#1c1c1e] border border-surface-2 rounded-[16px] p-1 mb-5 relative">
+        <button
+          onClick={() => setActiveTab('stats')}
+          className={`flex-1 py-2 rounded-[12px] text-xs font-black transition-colors relative z-10 flex items-center justify-center space-x-1.5 ${
+            activeTab === 'stats' ? 'text-black' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          {activeTab === 'stats' && (
+            <motion.div
+              layoutId="publicProfileTabPill"
+              className="absolute inset-0 bg-primary rounded-[12px] shadow-[0_0_12px_rgba(204,255,0,0.35)] -z-10"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <Activity size={14} />
+          <span>Datos</span>
+        </button>
 
-        <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 text-center">
-          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2">
-            <Flame size={18} />
-          </div>
-          <p className="text-2xl font-black text-white">{levelInfo.formattedKg}</p>
-          <p className="text-xs text-gray-400 font-medium mt-0.5">Kilos Totales</p>
-        </div>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`flex-1 py-2 rounded-[12px] text-xs font-black transition-colors relative z-10 flex items-center justify-center space-x-1.5 ${
+            activeTab === 'history' ? 'text-black' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          {activeTab === 'history' && (
+            <motion.div
+              layoutId="publicProfileTabPill"
+              className="absolute inset-0 bg-primary rounded-[12px] shadow-[0_0_12px_rgba(204,255,0,0.35)] -z-10"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <Calendar size={14} />
+          <span>Historial ({userWorkouts.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('prs')}
+          className={`flex-1 py-2 rounded-[12px] text-xs font-black transition-colors relative z-10 flex items-center justify-center space-x-1.5 ${
+            activeTab === 'prs' ? 'text-black' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          {activeTab === 'prs' && (
+            <motion.div
+              layoutId="publicProfileTabPill"
+              className="absolute inset-0 bg-primary rounded-[12px] shadow-[0_0_12px_rgba(204,255,0,0.35)] -z-10"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <Trophy size={14} />
+          <span>Récords</span>
+        </button>
       </div>
 
-      {/* Récords Personales (PRs) */}
-      {profile.prs && profile.prs.length > 0 && (
-        <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-5 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center">
-              <Trophy size={16} className="text-yellow-500 mr-2" />
-              Mejores Récords
-            </h3>
-            <span className="text-xs text-gray-500 font-medium">{profile.prs.length} ejercicios</span>
-          </div>
+      {/* ========================================================================= */}
+      {/* TAB 1: HISTORIAL DE ENTRENAMIENTOS */}
+      {/* ========================================================================= */}
+      {activeTab === 'history' && (
+        <div className="space-y-3 mb-6">
+          {isLoadingWorkouts ? (
+            <div className="text-center py-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent mx-auto mb-2"></div>
+              <p className="text-xs text-gray-400">Cargando entrenamientos...</p>
+            </div>
+          ) : userWorkouts.length === 0 ? (
+            <div className="bg-[#1c1c1e] border border-surface-2 rounded-3xl p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-surface-2 flex items-center justify-center text-gray-500 mx-auto mb-3">
+                <Dumbbell size={28} />
+              </div>
+              <h4 className="font-bold text-base mb-1">Sin entrenamientos guardados</h4>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Este atleta aún no ha completado entrenamientos en la aplicación.
+              </p>
+            </div>
+          ) : (
+            userWorkouts.map((sess) => (
+              <div
+                key={sess.id}
+                onClick={() => setSelectedWorkoutModal(sess)}
+                className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 cursor-pointer hover:border-primary/50 transition-all active:scale-[0.99] shadow-md group"
+              >
+                <div className="flex items-start justify-between mb-2.5">
+                  <div>
+                    <span className="text-[11px] text-gray-400 font-bold flex items-center space-x-1 mb-0.5">
+                      <Calendar size={12} className="text-primary" />
+                      <span>{formatDate(sess.started_at)}</span>
+                      <span>•</span>
+                      <span>{sess.durationMinutes} min</span>
+                    </span>
+                    <h4 className="font-black text-base text-white group-hover:text-primary transition-colors">
+                      {sess.title}
+                    </h4>
+                  </div>
 
-          <div className="space-y-2.5">
-            {profile.prs.slice(0, 5).map((pr, idx) => (
-              <div key={idx} className="bg-[#141416] border border-surface-2/60 rounded-xl p-3 flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-white">{pr.exercise_name || 'Ejercicio'}</h4>
-                  <p className="text-[11px] text-gray-400">{pr.muscle_group || 'General'}</p>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-primary block">
+                      {sess.total_volume_kg.toLocaleString()} kg
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">
+                      {sess.totalSetsCount} series
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-base font-black text-primary">{Math.round(pr.max_weight_kg)} kg</span>
-                  <span className="text-[10px] text-gray-400 block font-medium">1RM Máx</span>
+
+                {/* PRs badge & Exercises Preview */}
+                <div className="flex items-center justify-between pt-2 border-t border-surface-2/60 text-xs">
+                  <div className="flex items-center space-x-2 truncate pr-2">
+                    {sess.prsCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 font-black text-[10px] flex items-center space-x-1 shrink-0">
+                        <Trophy size={11} />
+                        <span>{sess.prsCount} PR{sess.prsCount > 1 ? 's' : ''}</span>
+                      </span>
+                    )}
+                    <span className="text-gray-400 truncate text-[11px]">
+                      {sess.exercises.map(e => e.name).slice(0, 3).join(', ')}
+                      {sess.exercises.length > 3 ? ` +${sess.exercises.length - 3}` : ''}
+                    </span>
+                  </div>
+
+                  <span className="text-primary text-xs font-bold shrink-0 flex items-center group-hover:translate-x-0.5 transition-transform">
+                    Ver <ChevronRight size={14} className="ml-0.5" />
+                  </span>
                 </div>
               </div>
-            ))}
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: RÉCORDS PERSONALES (PRs) */}
+      {/* ========================================================================= */}
+      {activeTab === 'prs' && (
+        <div className="space-y-3 mb-6">
+          {!profile.prs || profile.prs.length === 0 ? (
+            <div className="bg-[#1c1c1e] border border-surface-2 rounded-3xl p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-surface-2 flex items-center justify-center text-yellow-500 mx-auto mb-3">
+                <Trophy size={28} />
+              </div>
+              <h4 className="font-bold text-base mb-1">Sin récords registrados</h4>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Este atleta aún no tiene récords de fuerza registrados.
+              </p>
+            </div>
+          ) : (
+            profile.prs.map((pr, idx) => (
+              <div key={idx} className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 flex items-center justify-between shadow-md">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-yellow-500/10 text-yellow-400 flex items-center justify-center shrink-0 border border-yellow-500/20">
+                    <Trophy size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white">{pr.exercise_name || 'Ejercicio'}</h4>
+                    <p className="text-[11px] text-gray-400 uppercase font-medium">{pr.muscle_group || 'General'}</p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-lg font-black text-primary">{Math.round(pr.max_weight_kg || pr.max_1rm || 0)} kg</span>
+                  <span className="text-[10px] text-gray-400 block font-bold">1RM Máx</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: ESTADÍSTICAS */}
+      {/* ========================================================================= */}
+      {activeTab === 'stats' && (
+        <div className="space-y-4 mb-6">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 text-center">
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2">
+                <Activity size={18} />
+              </div>
+              <p className="text-2xl font-black text-primary">{profile.totalWorkouts || 0}</p>
+              <p className="text-xs text-gray-400 font-medium mt-0.5">Entrenamientos</p>
+            </div>
+
+            <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-4 text-center">
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2">
+                <Flame size={18} />
+              </div>
+              <p className="text-2xl font-black text-white">{levelInfo.formattedKg}</p>
+              <p className="text-xs text-gray-400 font-medium mt-0.5">Kilos Totales</p>
+            </div>
           </div>
         </div>
       )}
