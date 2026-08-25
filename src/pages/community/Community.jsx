@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
 import { 
   ArrowLeft, 
@@ -89,10 +90,10 @@ export default function Community() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-4 pb-32 max-w-md mx-auto animate-in fade-in duration-200">
+    <div className="w-full flex-1 flex flex-col p-4 pb-32 animate-in fade-in duration-200">
       
       {/* Header */}
-      <header className="flex items-center justify-between mb-5 pt-2 sticky top-0 bg-[#0a0a0a]/90 backdrop-blur-md z-10 pb-2 border-b border-surface-2/60">
+      <header className="flex items-center justify-between mb-4 pt-1 sticky top-0 bg-surface-0/95 backdrop-blur-md z-20 pb-2 border-b border-surface-2/60">
         <button 
           onClick={() => navigate('/')}
           className="p-2 rounded-full bg-[#1c1c1e] text-gray-300 hover:text-white transition-colors"
@@ -103,34 +104,55 @@ export default function Community() {
         <div className="w-9"></div>
       </header>
 
-      {/* Tabs Navigation */}
-      <div className="flex bg-[#1c1c1e] p-1 rounded-2xl mb-6 border border-surface-2">
+      {/* Tabs Navigation Segmentada */}
+      <div className="w-full bg-[#242426] p-1 rounded-[14px] mb-5 border border-surface-2 flex relative">
         <button
           onClick={() => setActiveTab('friends')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 ${
-            activeTab === 'friends' ? 'bg-primary text-surface-0 shadow-md' : 'text-gray-400 hover:text-white'
+          className={`flex-1 py-2.5 rounded-[10px] text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 relative z-10 ${
+            activeTab === 'friends' ? 'text-black font-black' : 'text-gray-400 hover:text-white'
           }`}
         >
+          {activeTab === 'friends' && (
+            <motion.div
+              layoutId="communityTabPill"
+              className="absolute inset-0 bg-primary rounded-[10px] shadow-md -z-10"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
           <Users size={15} />
           <span>Amigos ({friends.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('search')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 ${
-            activeTab === 'search' ? 'bg-primary text-surface-0 shadow-md' : 'text-gray-400 hover:text-white'
+          className={`flex-1 py-2.5 rounded-[10px] text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 relative z-10 ${
+            activeTab === 'search' ? 'text-black font-black' : 'text-gray-400 hover:text-white'
           }`}
         >
+          {activeTab === 'search' && (
+            <motion.div
+              layoutId="communityTabPill"
+              className="absolute inset-0 bg-primary rounded-[10px] shadow-md -z-10"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
           <Search size={15} />
           <span>Buscar</span>
         </button>
 
         <button
           onClick={() => setActiveTab('requests')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 relative ${
-            activeTab === 'requests' ? 'bg-primary text-surface-0 shadow-md' : 'text-gray-400 hover:text-white'
+          className={`flex-1 py-2.5 rounded-[10px] text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 relative z-10 ${
+            activeTab === 'requests' ? 'text-black font-black' : 'text-gray-400 hover:text-white'
           }`}
         >
+          {activeTab === 'requests' && (
+            <motion.div
+              layoutId="communityTabPill"
+              className="absolute inset-0 bg-primary rounded-[10px] shadow-md -z-10"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
           <UserPlus size={15} />
           <span>Solicitudes</span>
           {pendingRequests.length > 0 && (
@@ -246,27 +268,34 @@ export default function Community() {
       {/* PESTAÑA 2: BUSCAR ATLETAS */}
       {/* ========================================================================= */}
       {activeTab === 'search' && (
-        <div className="space-y-4">
-          <div className="relative">
+        <div className="space-y-4 w-full">
+          <div className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
             <input 
               type="text"
-              autoFocus
               placeholder="Buscar por nombre o usuario..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#1c1c1e] border border-surface-2 text-white pl-10 pr-4 py-3.5 rounded-2xl focus:outline-none focus:border-primary text-sm font-medium"
+              className="w-full bg-[#1c1c1e] border border-surface-2 text-white pl-10 pr-4 py-3.5 rounded-2xl focus:outline-none focus:border-primary text-base font-medium"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white p-1"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
 
           {isSearching && (
-            <div className="text-center py-6 text-gray-400 text-xs font-semibold">
+            <div className="text-center py-8 text-gray-400 text-xs font-semibold">
               Buscando atletas...
             </div>
           )}
 
           {!isSearching && searchResults.length > 0 && (
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 w-full">
               {searchResults.map(user => {
                 const isFriend = friends.some(f => f.id === user.id);
                 const isSent = sentRequests[user.id];
@@ -305,7 +334,7 @@ export default function Community() {
                       ) : (
                         <button
                           onClick={() => handleSendRequest(user.id)}
-                          className="px-4 py-2 rounded-full bg-primary text-surface-0 font-bold text-xs hover:opacity-90 transition-all active:scale-95 flex items-center space-x-1"
+                          className="px-4 py-2 rounded-full bg-primary text-black font-extrabold text-xs hover:opacity-90 transition-all active:scale-95 flex items-center space-x-1 shadow-sm"
                         >
                           <UserPlus size={13} />
                           <span>Seguir</span>
@@ -319,9 +348,11 @@ export default function Community() {
           )}
 
           {!isSearching && searchQuery && searchResults.length === 0 && (
-            <p className="text-gray-500 text-center py-10 text-sm">
-              No se encontraron atletas con "{searchQuery}".
-            </p>
+            <div className="bg-[#1c1c1e] border border-surface-2 rounded-2xl p-8 text-center my-2">
+              <p className="text-gray-400 text-sm">
+                No se encontraron atletas con "{searchQuery}".
+              </p>
+            </div>
           )}
 
           {!searchQuery && (
@@ -375,7 +406,7 @@ export default function Community() {
                   <div className="flex space-x-2 pt-2 border-t border-surface-2/60">
                     <button
                       onClick={() => acceptFollowRequest(req.id)}
-                      className="flex-1 py-2.5 rounded-xl bg-primary text-surface-0 font-bold text-xs hover:opacity-90 transition-all flex items-center justify-center space-x-1.5"
+                      className="flex-1 py-2.5 rounded-xl bg-primary text-black font-black text-xs hover:opacity-90 transition-all flex items-center justify-center space-x-1.5"
                     >
                       <UserCheck size={14} />
                       <span>Aceptar</span>

@@ -5,14 +5,35 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
+  }
+
   body {
     @apply bg-surface-0 text-white font-sans antialiased;
     overscroll-behavior-y: none;
+  }
+
+  /* Evitar auto-zoom de iOS en inputs manteniendo tamaño mínimo de 16px */
+  input, select, textarea {
+    font-size: 16px;
   }
 }
 
 .glass {
   @apply bg-surface-1/60 backdrop-blur-[20px] border border-surface-2;
+}
+
+/* Safe area utilities para Dynamic Island y Home Indicator de iPhone */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.top-safe {
+  top: env(safe-area-inset-top, 0px);
 }
 
 ::-webkit-scrollbar {
@@ -24,3 +45,4 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-surface-2 rounded-full;
 }
+
