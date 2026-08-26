@@ -318,11 +318,11 @@ export default function Rankings() {
             {/* Podium */}
             <div className="grid grid-cols-3 items-end justify-items-center w-full max-w-sm mx-auto mb-10 pt-2 px-1">
               
-              {/* Pos 2 (Plata / Silver - Izquierda) */}
+              {/* Pos 2 (Plata / Silver - Columna 1 Izquierda) */}
               {displayPodium[0] && (
                 <div 
                   onClick={() => navigate(`/profile/${displayPodium[0].user_id}`)}
-                  className="flex flex-col items-center w-full pb-1 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
+                  className="col-start-1 col-span-1 flex flex-col items-center w-full pb-1 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
                 >
                   <div className="relative mb-3 flex items-center justify-center">
                     <img 
@@ -342,11 +342,11 @@ export default function Rankings() {
                 </div>
               )}
 
-              {/* Pos 1 (Oro / Gold - Centro Elevado) */}
+              {/* Pos 1 (Oro / Gold - Columna 2 Centro Siempre) */}
               {displayPodium[1] && (
                 <div 
                   onClick={() => navigate(`/profile/${displayPodium[1].user_id}`)}
-                  className="flex flex-col items-center w-full -mt-6 pb-0 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group z-10"
+                  className="col-start-2 col-span-1 flex flex-col items-center w-full -mt-6 pb-0 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group z-10"
                 >
                   {/* Corona dorada a juego con el anillo */}
                   <Crown className="text-[#FACC15] fill-[#FACC15] mb-1.5 drop-shadow-[0_0_12px_rgba(250,204,21,0.6)] animate-bounce" size={32} strokeWidth={2} />
@@ -371,11 +371,11 @@ export default function Rankings() {
                 </div>
               )}
 
-              {/* Pos 3 (Bronce / Bronze - Derecha) */}
+              {/* Pos 3 (Bronce / Bronze - Columna 3 Derecha) */}
               {displayPodium[2] && (
                 <div 
                   onClick={() => navigate(`/profile/${displayPodium[2].user_id}`)}
-                  className="flex flex-col items-center w-full pb-1 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
+                  className="col-start-3 col-span-1 flex flex-col items-center w-full pb-1 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
                 >
                   <div className="relative mb-3 flex items-center justify-center">
                     <img 
