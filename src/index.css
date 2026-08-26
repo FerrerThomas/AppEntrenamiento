@@ -16,7 +16,9 @@
   }
 
   /* Evitar auto-zoom de iOS en inputs manteniendo tamaño mínimo de 16px */
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     font-size: 16px;
   }
 }
@@ -29,9 +31,11 @@
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }
+
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
 .top-safe {
   top: env(safe-area-inset-top, 0px);
 }
@@ -39,10 +43,11 @@
 ::-webkit-scrollbar {
   width: 4px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   @apply bg-surface-2 rounded-full;
 }
-

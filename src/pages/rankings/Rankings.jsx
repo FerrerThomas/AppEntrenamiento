@@ -316,58 +316,82 @@ export default function Rankings() {
         ) : (
           <>
             {/* Podium */}
-            <div className="flex items-end justify-center mb-10 h-48 px-2">
+            <div className="grid grid-cols-3 items-end justify-items-center w-full max-w-sm mx-auto mb-10 pt-2 px-1">
               
-              {/* Pos 2 */}
+              {/* Pos 2 (Plata / Silver - Izquierda) */}
               {displayPodium[0] && (
                 <div 
                   onClick={() => navigate(`/profile/${displayPodium[0].user_id}`)}
-                  className="flex flex-col items-center -mr-2 z-10 pb-4 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
+                  className="flex flex-col items-center w-full pb-1 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
                 >
-                  <div className="relative">
-                    <img src={displayPodium[0].avatar} className="w-20 h-20 rounded-full border-4 border-gray-300 object-cover group-hover:border-primary transition-colors" />
-                    <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-surface-1 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border border-gray-300">
+                  <div className="relative mb-3 flex items-center justify-center">
+                    <img 
+                      src={displayPodium[0].avatar} 
+                      className="w-20 h-20 sm:w-[84px] sm:h-[84px] rounded-full border-[3.5px] border-[#CBD5E1] shadow-[0_0_16px_rgba(203,213,225,0.3)] object-cover shrink-0 aspect-square group-hover:scale-105 transition-all" 
+                      alt={displayPodium[0].username}
+                    />
+                    <div className="absolute -bottom-2.5 left-1/2 transform -translate-x-1/2 bg-[#181C24] text-[#E2E8F0] text-xs font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-[#CBD5E1] shadow-md z-10">
                       2
                     </div>
                   </div>
-                  <span className="font-bold text-xs mt-5 text-center px-1 max-w-[115px] truncate tracking-tight text-white group-hover:text-primary transition-colors">{displayPodium[0].username}</span>
-                  <span className="font-black text-primary text-xl">{displayPodium[0].weight}</span>
+                  <span className="font-bold text-xs sm:text-sm text-center px-0.5 truncate w-full tracking-tight text-white group-hover:text-primary transition-colors">
+                    {displayPodium[0].username}
+                    {displayPodium[0].user_id === userProfile?.id ? ' (Tú)' : ''}
+                  </span>
+                  <span className="font-black text-primary text-base sm:text-lg tracking-tight mt-0.5">{displayPodium[0].weight}</span>
                 </div>
               )}
 
-              {/* Pos 1 */}
+              {/* Pos 1 (Oro / Gold - Centro Elevado) */}
               {displayPodium[1] && (
                 <div 
                   onClick={() => navigate(`/profile/${displayPodium[1].user_id}`)}
-                  className="flex flex-col items-center z-20 mx-1 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
+                  className="flex flex-col items-center w-full -mt-6 pb-0 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group z-10"
                 >
-                  <Crown className="text-primary mb-2 animate-bounce" size={36} strokeWidth={2.5} />
-                  <div className="relative">
-                    <div className="absolute inset-0 rounded-full shadow-glow opacity-50"></div>
-                    <img src={displayPodium[1].avatar} className="w-28 h-28 rounded-full border-[4px] border-primary object-cover relative z-10" />
-                    <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-primary text-surface-0 text-sm font-black w-8 h-8 rounded-full flex items-center justify-center z-20">
+                  {/* Corona dorada a juego con el anillo */}
+                  <Crown className="text-[#FACC15] fill-[#FACC15] mb-1.5 drop-shadow-[0_0_12px_rgba(250,204,21,0.6)] animate-bounce" size={32} strokeWidth={2} />
+                  
+                  <div className="relative mb-3.5 flex items-center justify-center">
+                    {/* Resplandor dorado */}
+                    <div className="absolute inset-0 rounded-full bg-[#FACC15]/20 blur-md scale-110 pointer-events-none"></div>
+                    <img 
+                      src={displayPodium[1].avatar} 
+                      className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-[4px] border-[#FACC15] shadow-[0_0_25px_rgba(250,204,21,0.5)] object-cover shrink-0 aspect-square relative z-10 group-hover:scale-105 transition-all" 
+                      alt={displayPodium[1].username}
+                    />
+                    <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-primary text-surface-0 text-sm font-black w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border-2 border-[#0A0A0A] shadow-lg z-20">
                       1
                     </div>
                   </div>
-                  <span className="font-bold text-sm mt-6 text-center px-1 max-w-[135px] truncate tracking-tight text-white group-hover:text-primary transition-colors">{displayPodium[1].username}</span>
-                  <span className="font-black text-primary text-2xl">{displayPodium[1].weight}</span>
+                  <span className="font-extrabold text-sm sm:text-base text-center px-0.5 truncate w-full tracking-tight text-white group-hover:text-primary transition-colors">
+                    {displayPodium[1].username}
+                    {displayPodium[1].user_id === userProfile?.id ? ' (Tú)' : ''}
+                  </span>
+                  <span className="font-black text-primary text-xl sm:text-2xl tracking-tight mt-0.5">{displayPodium[1].weight}</span>
                 </div>
               )}
 
-              {/* Pos 3 */}
+              {/* Pos 3 (Bronce / Bronze - Derecha) */}
               {displayPodium[2] && (
                 <div 
                   onClick={() => navigate(`/profile/${displayPodium[2].user_id}`)}
-                  className="flex flex-col items-center -ml-2 z-10 pb-6 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
+                  className="flex flex-col items-center w-full pb-1 cursor-pointer hover:opacity-90 transition-transform active:scale-95 group"
                 >
-                  <div className="relative">
-                    <img src={displayPodium[2].avatar} className="w-20 h-20 rounded-full border-4 border-[#b07d50] object-cover group-hover:border-primary transition-colors" />
-                    <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-surface-1 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border border-[#b07d50]">
+                  <div className="relative mb-3 flex items-center justify-center">
+                    <img 
+                      src={displayPodium[2].avatar} 
+                      className="w-20 h-20 sm:w-[84px] sm:h-[84px] rounded-full border-[3.5px] border-[#F59E0B] shadow-[0_0_16px_rgba(245,158,11,0.35)] object-cover shrink-0 aspect-square group-hover:scale-105 transition-all" 
+                      alt={displayPodium[2].username}
+                    />
+                    <div className="absolute -bottom-2.5 left-1/2 transform -translate-x-1/2 bg-[#231508] text-[#F59E0B] text-xs font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-[#F59E0B] shadow-md z-10">
                       3
                     </div>
                   </div>
-                  <span className="font-bold text-xs mt-5 text-center px-1 max-w-[115px] truncate tracking-tight text-white group-hover:text-primary transition-colors">{displayPodium[2].username}</span>
-                  <span className="font-black text-primary text-xl">{displayPodium[2].weight}</span>
+                  <span className="font-bold text-xs sm:text-sm text-center px-0.5 truncate w-full tracking-tight text-white group-hover:text-primary transition-colors">
+                    {displayPodium[2].username}
+                    {displayPodium[2].user_id === userProfile?.id ? ' (Tú)' : ''}
+                  </span>
+                  <span className="font-black text-primary text-base sm:text-lg tracking-tight mt-0.5">{displayPodium[2].weight}</span>
                 </div>
               )}
             </div>

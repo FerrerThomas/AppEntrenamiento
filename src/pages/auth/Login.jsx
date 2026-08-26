@@ -61,7 +61,7 @@ export default function Login() {
 
         await loginWithEmail(formData.email, formData.password);
         const profile = useAppStore.getState().userProfile;
-        
+
         if (profile?.weight_kg) {
           navigate('/');
         } else {
@@ -88,7 +88,7 @@ export default function Login() {
         }
 
         const data = await registerWithEmail(formData.email, formData.password, formData.username);
-        
+
         if (data?.session) {
           navigate('/onboarding/1');
         } else {
@@ -125,7 +125,7 @@ export default function Login() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 sm:px-6 py-8 bg-[#0a0a0a] text-white">
-      
+
       {/* Brand Title */}
       <div className="flex flex-col items-center mb-10 -mt-8">
         <h1 className="text-[42px] font-black tracking-tighter">
@@ -136,7 +136,7 @@ export default function Login() {
 
       {/* Main Auth Card */}
       <div className="w-full max-w-md bg-[#131313] border border-[#1c1b1b] rounded-3xl p-6 sm:p-7 shadow-2xl relative">
-        
+
         {/* Header if Register or Forgot */}
         {mode !== 'login' && (
           <div className="flex items-center space-x-3 mb-6">
@@ -179,7 +179,7 @@ export default function Login() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          
+
           {/* Username (Only in Register mode) */}
           {mode === 'register' && (
             <div>
