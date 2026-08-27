@@ -33,3 +33,8 @@ dist-ssr
 sql/
 *.sql
 
+# Vite temporary files
+vite.config.js.timestamp-*
+*.timestamp-*.mjs
+
+

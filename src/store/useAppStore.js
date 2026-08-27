@@ -794,14 +794,38 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
-  activeWorkout: null,
-  activeWorkoutSets: null,
+  // Helpers para persistencia de sesión activa en localStorage
+  activeWorkout: (() => {
+    try {
+      const raw = localStorage.getItem('ftraining_active_workout');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  })(),
+  activeWorkoutSets: (() => {
+    try {
+      const raw = localStorage.getItem('ftraining_active_workout_sets');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  })(),
   lastCompletedWorkout: null,
   
   startWorkout: (workout) => {
     const user = get().user;
     const routineTitle = workout?.title || 'Entrenamiento';
-    set({ activeWorkout: { ...workout, startTime: Date.now() }, activeWorkoutSets: null });
+    const activeData = { ...workout, startTime: Date.now() };
+
+    try {
+      localStorage.setItem('ftraining_active_workout', JSON.stringify(activeData));
+      localStorage.removeItem('ftraining_active_workout_sets');
+    } catch (e) {
+      console.error('Error saving active workout to localStorage:', e);
+    }
+
+    set({ activeWorkout: activeData, activeWorkoutSets: null });
     
     // Marcar usuario como activo en vivo en la base de datos
     if (user?.id) {
@@ -815,7 +839,14 @@ export const useAppStore = create((set, get) => ({
   
   finishWorkout: (summaryData) => {
     const user = get().user;
+    try {
+      localStorage.removeItem('ftraining_active_workout');
+      localStorage.removeItem('ftraining_active_workout_sets');
+    } catch (e) {}
+
     set((state) => ({ 
+      activeWorkout: null,
+      activeWorkoutSets: null,
       lastCompletedWorkout: summaryData,
       lifetimeVolumeKg: state.lifetimeVolumeKg + (parseFloat(summaryData?.volume) || 0)
     }));
@@ -832,6 +863,11 @@ export const useAppStore = create((set, get) => ({
   
   clearWorkout: () => {
     const user = get().user;
+    try {
+      localStorage.removeItem('ftraining_active_workout');
+      localStorage.removeItem('ftraining_active_workout_sets');
+    } catch (e) {}
+
     set({
       activeWorkout: null,
       activeWorkoutSets: null,
@@ -849,6 +885,11 @@ export const useAppStore = create((set, get) => ({
   
   cancelWorkout: () => {
     const user = get().user;
+    try {
+      localStorage.removeItem('ftraining_active_workout');
+      localStorage.removeItem('ftraining_active_workout_sets');
+    } catch (e) {}
+
     set({ activeWorkout: null, activeWorkoutSets: null });
 
     if (user?.id) {
@@ -859,11 +900,24 @@ export const useAppStore = create((set, get) => ({
       }).eq('id', user.id).then(() => {});
     }
   },
-  setActiveWorkoutSets: (setsOrUpdater) => set((state) => ({
-    activeWorkoutSets: typeof setsOrUpdater === 'function' 
-      ? setsOrUpdater(state.activeWorkoutSets) 
-      : setsOrUpdater
-  })),
+
+  setActiveWorkoutSets: (setsOrUpdater) => set((state) => {
+    const newSets = typeof setsOrUpdater === 'function' 
+      ? setsOrUpdater(state.activeWorkoutSets || {}) 
+      : setsOrUpdater;
+
+    try {
+      if (newSets && Object.keys(newSets).length > 0) {
+        localStorage.setItem('ftraining_active_workout_sets', JSON.stringify(newSets));
+      } else {
+        localStorage.removeItem('ftraining_active_workout_sets');
+      }
+    } catch (e) {
+      console.error('Error syncing workout sets with localStorage:', e);
+    }
+
+    return { activeWorkoutSets: newSets };
+  }),
 
   rankings: [
     { id: 1, name: 'Marcos P.', weight: '120kg', trend: 'up', position: 1, avatar: 'https://i.pravatar.cc/150?img=11' },

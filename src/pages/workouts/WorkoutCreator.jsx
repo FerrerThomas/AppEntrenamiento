@@ -26,10 +26,16 @@ export default function WorkoutCreator() {
   const user = useAppStore((state) => state.user);
   const workouts = useAppStore((state) => state.workouts);
   const fetchWorkouts = useAppStore((state) => state.fetchWorkouts);
-  
+
   const [title, setTitle] = useState('');
   const [selectedExercises, setSelectedExercises] = useState([]);
-  
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const isInitialMount = useRef(true);
+
+  const DRAFT_KEY = editRoutineId
+    ? `ftraining_routine_draft_${editRoutineId}`
+    : 'ftraining_routine_draft_new';
+
   // Modal state (Agregar Ejercicio)
   const [dbExercises, setDbExercises] = useState([]);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
@@ -66,55 +72,59 @@ export default function WorkoutCreator() {
   const handleRemoveImage = () => {
     setNewExFile(null);
     setNewExPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
-  const handleCreateExercise = async () => {
-    if (!newExName.trim()) return;
+  const handleCreateCustomExercise = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!newExName.trim() || isCreatingExercise) return;
+
     setIsCreatingExercise(true);
-
     try {
-      let finalMediaUrl = null;
+      let uploadedUrl = null;
 
-      // 1. Subir imagen o GIF a Supabase Storage si se seleccionó
+      // 1. Subir imagen si se seleccionó archivo
       if (newExFile) {
         const fileExt = newExFile.name.split('.').pop();
-        const fileName = `exercise_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, newExFile, { upsert: true });
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+        const filePath = `custom-exercises/${fileName}`;
 
-        if (!uploadError) {
-          const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
-          finalMediaUrl = publicUrlData.publicUrl;
-        } else {
-          // Fallback a data URL
-          finalMediaUrl = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.readAsDataURL(newExFile);
+        const { error: uploadError } = await supabase.storage
+          .from('exercises')
+          .upload(filePath, newExFile, {
+            cacheControl: '3600',
+            upsert: false
           });
+
+        if (uploadError) {
+          console.error('Error al subir imagen a Supabase Storage:', uploadError);
+        } else {
+          const { data: publicUrlData } = supabase.storage
+            .from('exercises')
+            .getPublicUrl(filePath);
+          uploadedUrl = publicUrlData?.publicUrl || null;
         }
       }
 
-      // 2. Insertar en la tabla exercises
+      // 2. Insertar ejercicio en la tabla exercises
       const { data: newExercise, error: insertError } = await supabase
         .from('exercises')
         .insert({
           name: newExName.trim(),
           muscle_group: newExCategory,
-          gif_url: finalMediaUrl
+          gif_url: uploadedUrl
         })
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      // 3. Actualizar lista de ejercicios y seleccionarlo
+      // 3. Actualizar la lista local de ejercicios y seleccionarlo
       if (newExercise) {
-        setDbExercises((prev) => [newExercise, ...prev]);
-        setDraftSelected((prev) => [...prev, newExercise]);
+        setDbExercises(prev => [newExercise, ...prev]);
+        setDraftSelected(prev => [...prev, newExercise]);
       }
 
       // 4. Limpiar estado y cerrar modal de creación
@@ -130,8 +140,25 @@ export default function WorkoutCreator() {
     }
   };
 
-  // Cargar datos de la rutina si estamos en modo edición
+  // Cargar datos de la rutina si estamos en modo edición o restaurar borrador de localStorage
   useEffect(() => {
+    try {
+      const savedDraftRaw = localStorage.getItem(DRAFT_KEY);
+      if (savedDraftRaw) {
+        const draft = JSON.parse(savedDraftRaw);
+        if (draft && (draft.title || (draft.selectedExercises && draft.selectedExercises.length > 0))) {
+          if (draft.title) setTitle(draft.title);
+          if (draft.selectedExercises && draft.selectedExercises.length > 0) {
+            setSelectedExercises(draft.selectedExercises);
+          }
+          setHasRestoredDraft(true);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading routine draft from localStorage:', e);
+    }
+
     if (editRoutineId && workouts.length > 0) {
       const existing = workouts.find(w => w.id === editRoutineId);
       if (existing) {
@@ -141,18 +168,40 @@ export default function WorkoutCreator() {
           name: rx.exercises?.name,
           muscle_group: rx.exercises?.muscle_group,
           gif_url: rx.exercises?.gif_url,
-          sets: (rx.sets && rx.sets.length > 0) 
+          sets: (rx.sets && rx.sets.length > 0)
             ? rx.sets.map(s => ({
-                id: s.id || Math.random().toString(36).substr(2, 9),
-                weight: s.target_weight_kg ?? '',
-                reps: s.target_reps ?? ''
-              }))
+              id: s.id || Math.random().toString(36).substr(2, 9),
+              weight: s.target_weight_kg ?? '',
+              reps: s.target_reps ?? ''
+            }))
             : [{ id: Math.random().toString(36).substr(2, 9), weight: '', reps: '' }]
         }));
         setSelectedExercises(mappedExercises);
       }
     }
-  }, [editRoutineId, workouts]);
+  }, [editRoutineId, workouts, DRAFT_KEY]);
+
+  // Guardar automáticamente borrador en localStorage cuando el usuario modifica la rutina
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    try {
+      if (title.trim() || selectedExercises.length > 0) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          title,
+          selectedExercises,
+          updatedAt: Date.now()
+        }));
+      } else {
+        localStorage.removeItem(DRAFT_KEY);
+      }
+    } catch (e) {
+      console.error('Error saving routine draft to localStorage:', e);
+    }
+  }, [title, selectedExercises, DRAFT_KEY]);
 
   const openModal = () => {
     setDraftSelected([]);
@@ -170,11 +219,11 @@ export default function WorkoutCreator() {
   };
 
   const confirmAddExercises = () => {
-    const newExercises = draftSelected.map(ex => ({ 
-      ...ex, 
+    const newExercises = draftSelected.map(ex => ({
+      ...ex,
       sets: [
         { id: Math.random().toString(36).substr(2, 9), weight: '', reps: '' }
-      ] 
+      ]
     }));
     setSelectedExercises([...selectedExercises, ...newExercises]);
     setShowExerciseModal(false);
@@ -188,13 +237,13 @@ export default function WorkoutCreator() {
     const updated = [...selectedExercises];
     const targetExercise = updated[exerciseIndex];
     const previousSet = targetExercise.sets[targetExercise.sets.length - 1];
-    
+
     targetExercise.sets.push({
       id: Math.random().toString(36).substr(2, 9),
       weight: previousSet ? previousSet.weight : '',
       reps: previousSet ? previousSet.reps : ''
     });
-    
+
     setSelectedExercises(updated);
   };
 
@@ -214,7 +263,7 @@ export default function WorkoutCreator() {
 
   const handleSaveRoutine = async () => {
     if (!title.trim() || selectedExercises.length === 0) return;
-    
+
     setIsSaving(true);
     try {
       let currentWorkoutId = editRoutineId;
@@ -224,7 +273,7 @@ export default function WorkoutCreator() {
           .from('workouts')
           .update({ title: title.trim() })
           .eq('id', editRoutineId);
-        
+
         if (updateError) throw updateError;
 
         await supabase.from('routine_exercises').delete().eq('workout_id', editRoutineId);
@@ -274,6 +323,10 @@ export default function WorkoutCreator() {
         await supabase.from('routine_sets').insert(setsToInsert);
       }
 
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch (e) { }
+
       await fetchWorkouts();
       navigate('/workouts');
     } catch (error) {
@@ -285,17 +338,17 @@ export default function WorkoutCreator() {
 
   const filteredDbExercises = dbExercises.filter(ex => {
     const q = searchQuery.toLowerCase().trim();
-    const matchesSearch = !q || 
-      ex.name.toLowerCase().includes(q) || 
+    const matchesSearch = !q ||
+      ex.name.toLowerCase().includes(q) ||
       (ex.muscle_group && ex.muscle_group.toLowerCase().includes(q));
 
-    const matchesMuscle = selectedMuscle === 'Todos' || 
+    const matchesMuscle = selectedMuscle === 'Todos' ||
       (ex.muscle_group && ex.muscle_group.toLowerCase().trim() === selectedMuscle.toLowerCase().trim());
 
     return matchesSearch && matchesMuscle;
-   });
+  });
 
-   return (
+  return (
     <div className="flex flex-col min-h-screen bg-[#0a0a0a] text-white w-full">
       <header className="border-b border-surface-2 bg-[#0a0a0a] sticky top-0 z-20">
         <div className="max-w-md w-full mx-auto flex items-center justify-between p-4 pt-6">
@@ -306,7 +359,7 @@ export default function WorkoutCreator() {
           </div>
           <h1 className="text-[17px] font-bold flex-1 text-center truncate">{editRoutineId ? 'Editar Rutina' : 'Crear Rutina'}</h1>
           <div className="w-24 flex justify-end">
-            <button 
+            <button
               onClick={handleSaveRoutine}
               disabled={isSaving || selectedExercises.length === 0}
               className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors ${selectedExercises.length > 0 ? 'bg-primary text-surface-0' : 'bg-[#2c2c2e] text-gray-500'}`}
@@ -318,8 +371,26 @@ export default function WorkoutCreator() {
       </header>
 
       <div className="p-4 flex-1 flex flex-col w-full max-w-md mx-auto relative pb-28">
-        <input 
-          type="text" 
+        {hasRestoredDraft && (
+          <div className="mb-4 px-3.5 py-2 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-between text-xs text-primary animate-in fade-in">
+            <span className="font-semibold">⚠️​ Borrador recuperado automáticamente</span>
+            <button
+              type="button"
+              onClick={() => {
+                try { localStorage.removeItem(DRAFT_KEY); } catch (e) { }
+                setTitle('');
+                setSelectedExercises([]);
+                setHasRestoredDraft(false);
+              }}
+              className="font-bold underline hover:text-white ml-2 shrink-0"
+            >
+              Descartar
+            </button>
+          </div>
+        )}
+
+        <input
+          type="text"
           placeholder="Nombre de la Rutina"
           value={title}
           onChange={e => setTitle(e.target.value)}
@@ -346,7 +417,7 @@ export default function WorkoutCreator() {
                     <p className="text-xs text-gray-400 truncate">{exercise.muscle_group || 'General'}</p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => handleRemoveExercise(exerciseIndex)}
                   className="text-gray-500 hover:text-red-400 p-1 shrink-0 ml-2"
                 >
@@ -369,7 +440,7 @@ export default function WorkoutCreator() {
                       {setIndex + 1}
                     </span>
                     <div className="min-w-0">
-                      <input 
+                      <input
                         type="number"
                         placeholder="0"
                         value={set.weight}
@@ -378,7 +449,7 @@ export default function WorkoutCreator() {
                       />
                     </div>
                     <div className="min-w-0">
-                      <input 
+                      <input
                         type="number"
                         placeholder="0"
                         value={set.reps}
@@ -386,7 +457,7 @@ export default function WorkoutCreator() {
                         className="w-full h-10 bg-[#141416] border border-surface-2/60 rounded-lg text-center font-bold text-sm text-white focus:outline-none focus:border-primary"
                       />
                     </div>
-                    <button 
+                    <button
                       onClick={() => handleRemoveSet(exerciseIndex, setIndex)}
                       className="w-8 h-8 text-gray-600 hover:text-red-400 flex justify-center items-center rounded-lg hover:bg-red-500/10 transition-colors shrink-0"
                       title="Eliminar serie"
@@ -396,7 +467,7 @@ export default function WorkoutCreator() {
                   </div>
                 ))}
 
-                <button 
+                <button
                   onClick={() => handleAddSet(exerciseIndex)}
                   className="w-full bg-[#141416] hover:bg-[#2c2c2e] border border-surface-2/60 transition-colors rounded-xl py-2.5 text-xs font-semibold text-white flex justify-center items-center mt-2"
                 >
@@ -407,7 +478,7 @@ export default function WorkoutCreator() {
           ))}
         </div>
 
-        <button 
+        <button
           onClick={openModal}
           className="w-full py-4 rounded-2xl bg-[#1c1c1e] border border-surface-2 border-dashed flex items-center justify-center space-x-2 text-primary font-bold text-base hover:bg-[#242426] transition-colors"
         >
@@ -426,7 +497,7 @@ export default function WorkoutCreator() {
             </div>
             <h2 className="text-[17px] font-bold flex-1 text-center">Agregar Ejercicio</h2>
             <div className="w-24 flex justify-end">
-              <button 
+              <button
                 onClick={() => setShowCreateModal(true)}
                 className="text-primary text-[17px] font-medium hover:opacity-80 transition-opacity"
               >
@@ -434,19 +505,19 @@ export default function WorkoutCreator() {
               </button>
             </div>
           </header>
-          
+
           <div className="p-4 bg-[#0a0a0a] sticky top-[53px] z-10 border-b border-surface-2/40 space-y-3">
             <div className="bg-[#1c1c1e] rounded-xl flex items-center px-3 py-2.5 border border-surface-2/60 focus-within:border-primary transition-colors">
               <Search size={20} className="text-gray-500 mr-2 shrink-0" />
-              <input 
-                type="text" 
-                placeholder="Buscar ejercicio..." 
+              <input
+                type="text"
+                placeholder="Buscar ejercicio..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="bg-transparent border-none text-white focus:outline-none w-full text-base placeholder-gray-500 font-medium"
               />
               {searchQuery && (
-                <button 
+                <button
                   onClick={() => setSearchQuery('')}
                   className="p-1 rounded-full text-gray-400 hover:text-white bg-surface-2 ml-1"
                 >
@@ -454,23 +525,22 @@ export default function WorkoutCreator() {
                 </button>
               )}
             </div>
-            
+
             <div className="flex space-x-2 overflow-x-auto no-scrollbar pb-0.5">
               {MUSCLE_FILTER_OPTIONS.map((muscle) => {
                 const isSelected = selectedMuscle === muscle;
-                const count = muscle === 'Todos' 
-                  ? dbExercises.length 
+                const count = muscle === 'Todos'
+                  ? dbExercises.length
                   : dbExercises.filter(e => (e.muscle_group || '').toLowerCase().trim() === muscle.toLowerCase().trim()).length;
 
                 return (
                   <button
                     key={muscle}
                     onClick={() => setSelectedMuscle(muscle)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 shrink-0 ${
-                      isSelected
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-1.5 shrink-0 ${isSelected
                         ? 'bg-primary text-surface-0 shadow-[0_0_12px_rgba(204,255,0,0.35)] scale-[1.02]'
                         : 'bg-[#1c1c1e] text-gray-300 hover:text-white border border-[#2a2a2c] hover:border-gray-500'
-                    }`}
+                      }`}
                   >
                     <span>{muscle}</span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${isSelected ? 'bg-surface-0/20 text-surface-0' : 'bg-surface-2 text-gray-400'}`}>
@@ -488,7 +558,7 @@ export default function WorkoutCreator() {
                 {selectedMuscle === 'Todos' ? 'Todos los Ejercicios' : `Ejercicios de ${selectedMuscle}`} ({filteredDbExercises.length})
               </span>
               {(selectedMuscle !== 'Todos' || searchQuery) && (
-                <button 
+                <button
                   onClick={() => { setSelectedMuscle('Todos'); setSearchQuery(''); }}
                   className="text-primary text-xs font-bold hover:underline"
                 >
@@ -496,12 +566,12 @@ export default function WorkoutCreator() {
                 </button>
               )}
             </div>
-            
+
             {filteredDbExercises.map(ex => {
               const isSelected = draftSelected.some(d => d.id === ex.id);
               return (
-                <div 
-                  key={ex.id} 
+                <div
+                  key={ex.id}
                   onClick={() => toggleDraftSelection(ex)}
                   className={`px-4 py-3 cursor-pointer flex items-center justify-between border-b border-surface-2 transition-colors ${isSelected ? 'bg-primary/20' : 'hover:bg-[#1c1c1e]'}`}
                 >
@@ -515,7 +585,7 @@ export default function WorkoutCreator() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="min-w-0">
                       <p className="font-semibold text-[17px] truncate">{ex.name}</p>
                       <span className="inline-block text-[11px] font-bold text-gray-400 mt-0.5 bg-[#1c1c1e] px-2 py-0.5 rounded-md border border-[#2a2a2c]">
@@ -523,14 +593,14 @@ export default function WorkoutCreator() {
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-2 transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-gray-600'}`}>
                     {isSelected && <Check size={14} className="text-surface-0" strokeWidth={3.5} />}
                   </div>
                 </div>
               );
             })}
-            
+
             {filteredDbExercises.length === 0 && (
               <div className="text-center py-16 px-4">
                 <Dumbbell size={40} className="mx-auto text-gray-600 mb-3 opacity-50" />
@@ -565,7 +635,7 @@ export default function WorkoutCreator() {
         <div className="fixed inset-0 bg-[#0a0a0a] z-[60] flex flex-col pt-safe animate-in slide-in-from-bottom-full duration-200">
           <header className="flex items-center justify-between p-4 py-3 bg-[#0a0a0a] sticky top-0 z-10 border-b border-surface-2">
             <div className="w-24 text-left">
-              <button 
+              <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-primary text-[17px] font-medium"
               >
@@ -574,14 +644,13 @@ export default function WorkoutCreator() {
             </div>
             <h2 className="text-[17px] font-bold flex-1 text-center">Nuevo Ejercicio</h2>
             <div className="w-24 flex justify-end">
-              <button 
+              <button
                 onClick={handleCreateExercise}
                 disabled={!newExName.trim() || isCreatingExercise}
-                className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors ${
-                  newExName.trim() && !isCreatingExercise
+                className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors ${newExName.trim() && !isCreatingExercise
                     ? 'bg-primary text-surface-0'
                     : 'bg-[#2c2c2e] text-gray-500'
-                }`}
+                  }`}
               >
                 {isCreatingExercise ? 'Guardando...' : 'Guardar'}
               </button>
@@ -605,7 +674,7 @@ export default function WorkoutCreator() {
                     </button>
                   </div>
                 ) : (
-                  <div 
+                  <div
                     onClick={() => fileInputRef.current?.click()}
                     className="w-28 h-28 rounded-2xl bg-surface-2/70 border border-dashed border-gray-600 hover:border-primary flex flex-col items-center justify-center cursor-pointer transition-colors group"
                   >
@@ -663,11 +732,10 @@ export default function WorkoutCreator() {
                       key={cat}
                       type="button"
                       onClick={() => setNewExCategory(cat)}
-                      className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                        isSelected
+                      className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${isSelected
                           ? 'bg-primary text-surface-0 shadow-md scale-[1.02]'
                           : 'bg-[#1c1c1e] text-gray-300 border border-surface-2 hover:bg-[#2c2c2e]'
-                      }`}
+                        }`}
                     >
                       {cat}
                     </button>
