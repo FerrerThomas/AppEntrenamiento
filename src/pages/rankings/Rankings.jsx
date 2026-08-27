@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Minus, Crown, Dumbbell, X, Trophy, Flame } from 'lucide-react';
+import { Search, Minus, Crown, Dumbbell, X, Trophy, Flame, MapPin } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 const timeMapping = {
