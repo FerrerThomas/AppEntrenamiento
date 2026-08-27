@@ -126,7 +126,7 @@ export default function Onboarding() {
             birth_date: data.birthDate || null,
             weight_kg: data.weight,
             height_cm: data.height,
-            gym_id: typeof data.gym === 'string' ? null : data.gym,
+            gym_id: data.gym || null,
             avatar_url: avatarUrl || userProfile?.avatar_url // Mantener el de Google si no subió uno nuevo
           });
           // Recargar el perfil para que el Dashboard lo tenga inmediatamente

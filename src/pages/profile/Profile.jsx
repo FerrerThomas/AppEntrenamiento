@@ -81,8 +81,11 @@ export default function Profile() {
     social_link: '',
     weight_kg: '',
     height_cm: '',
+    gym_id: '',
   });
 
+  const [gymName, setGymName] = useState(null);
+  const [availableGyms, setAvailableGyms] = useState([]);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const fileInputRef = useRef(null);
@@ -94,6 +97,26 @@ export default function Profile() {
   });
 
   useEffect(() => {
+    const fetchGymList = async () => {
+      const { data } = await supabase.from('gyms').select('id, name').order('name');
+      if (data) setAvailableGyms(data);
+    };
+    fetchGymList();
+  }, []);
+
+  useEffect(() => {
+    const fetchUserGym = async () => {
+      if (userProfile?.gym_id) {
+        const { data } = await supabase.from('gyms').select('name').eq('id', userProfile.gym_id).single();
+        setGymName(data?.name || null);
+      } else {
+        setGymName(null);
+      }
+    };
+    fetchUserGym();
+  }, [userProfile?.gym_id]);
+
+  useEffect(() => {
     if (userProfile) {
       setFormData({
         username: userProfile.username || '',
@@ -102,6 +125,7 @@ export default function Profile() {
         social_link: userProfile.social_link || '',
         weight_kg: userProfile.weight_kg || '',
         height_cm: userProfile.height_cm || '',
+        gym_id: userProfile.gym_id || '',
       });
       setAvatarPreview(userProfile.avatar_url || null);
     }
@@ -175,6 +199,7 @@ export default function Profile() {
         social_link: formData.social_link.trim() || null,
         weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : null,
         height_cm: formData.height_cm ? parseFloat(formData.height_cm) : null,
+        gym_id: formData.gym_id || null,
         avatar_url: avatar_url,
       });
 
@@ -286,6 +311,24 @@ export default function Profile() {
             <span>{rank.badge}</span>
             <span>{rank.fullName}</span>
           </span>
+        </div>
+
+        {/* Gym Badge */}
+        <div className="mt-0.5 mb-2.5 z-10 relative">
+          {gymName ? (
+            <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#121214] border border-surface-2 text-primary text-xs font-bold shadow-sm">
+              <MapPin size={12} className="text-primary" />
+              <span>{gymName}</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditOpen(true)}
+              className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#121214] border border-surface-2/60 text-gray-400 hover:text-white text-xs font-medium cursor-pointer transition-colors"
+            >
+              <Dumbbell size={12} />
+              <span>+ Seleccionar mi gimnasio</span>
+            </button>
+          )}
         </div>
 
         <p className="text-xs text-gray-400 mb-3 z-10 relative">{user?.email}</p>
@@ -661,6 +704,22 @@ export default function Profile() {
                       className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl pl-9 pr-4 py-3 text-white text-base focus:outline-none focus:border-primary"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Gimnasio</label>
+                  <select
+                    value={formData.gym_id}
+                    onChange={(e) => setFormData({ ...formData, gym_id: e.target.value })}
+                    className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    <option value="">Sin gimnasio seleccionado</option>
+                    {availableGyms.map((g) => (
+                      <option key={g.id} value={g.id} className="bg-[#1c1c1e] text-white">
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
