@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useAppStore } from '../../store/useAppStore';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, User, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, User, AlertCircle, CheckCircle2, ArrowLeft, Sparkles } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -103,7 +103,7 @@ export default function Login() {
         }
 
         await resetPassword(formData.email);
-        setSuccessMsg('Te hemos enviado un enlace a tu correo para restablecer tu contraseña.');
+        setSuccessMsg('Enlace de recuperación enviado. Revisa tu correo electrónico.');
       }
     } catch (err) {
       console.error('Auth error:', err);
@@ -127,12 +127,35 @@ export default function Login() {
     <div className="flex flex-col items-center justify-center min-h-screen px-4 sm:px-6 py-8 bg-[#0a0a0a] text-white">
 
       {/* Brand Title */}
-      <div className="flex flex-col items-center mb-10 -mt-8">
+      <div className="flex flex-col items-center mb-6 -mt-4">
         <h1 className="text-[42px] font-black tracking-tighter">
           <span className="text-white">F</span><span className="text-primary">Training</span>
         </h1>
-        <p className="text-gray-400 mt-2 text-sm font-medium">Planifica, entrena, registra y rankea</p>
+        <p className="text-gray-400 mt-1 text-sm font-medium">Planifica, entrena, registra y rankea</p>
       </div>
+
+      {/* Notificación de App en Desarrollo */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="w-full max-w-md mb-6 p-4 rounded-3xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-[#131313] border border-amber-500/30 flex items-start space-x-3.5 shadow-[0_8px_30px_rgba(245,158,11,0.08)] backdrop-blur-sm"
+      >
+        <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5 border border-amber-500/30 shadow-inner">
+          <Sparkles size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center space-x-2 mb-1">
+            <h4 className="font-extrabold text-white text-sm tracking-tight">App en Desarrollo</h4>
+            <span className="text-[10px] px-2 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/40 rounded-full font-black uppercase tracking-wider">
+              BETA
+            </span>
+          </div>
+          <p className="text-gray-300 text-[12.5px] leading-relaxed">
+            Cualquier posible error o detalle visual se estará solucionando en próximas actualizaciones.
+          </p>
+        </div>
+      </motion.div>
 
       {/* Main Auth Card */}
       <div className="w-full max-w-md bg-[#131313] border border-[#1c1b1b] rounded-3xl p-6 sm:p-7 shadow-2xl relative">
