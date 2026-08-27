@@ -127,6 +127,7 @@ export default function Onboarding() {
             weight_kg: data.weight,
             height_cm: data.height,
             gym_id: data.gym || null,
+            gender: data.gender || 'male',
             avatar_url: avatarUrl || userProfile?.avatar_url // Mantener el de Google si no subió uno nuevo
           });
           // Recargar el perfil para que el Dashboard lo tenga inmediatamente
@@ -211,6 +212,37 @@ export default function Onboarding() {
                     </button>
                     <span className="text-[9px] text-gray-500 mt-1.5 font-bold tracking-widest">OPCIONAL</span>
                   </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black text-primary mb-2 tracking-wider">SEXO / GÉNERO</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setOnboardingData({ gender: 'male' })}
+                    className={`h-16 rounded-2xl border flex items-center justify-center space-x-2.5 transition-all font-bold text-sm cursor-pointer ${
+                      (data.gender || 'male') === 'male'
+                        ? 'bg-primary/10 border-primary text-primary shadow-[0_0_15px_rgba(204,255,0,0.15)] scale-[1.02]'
+                        : 'bg-[#131313] border-[#1c1b1b] text-gray-400 hover:border-gray-600 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-xl">👨</span>
+                    <span>Masculino</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setOnboardingData({ gender: 'female' })}
+                    className={`h-16 rounded-2xl border flex items-center justify-center space-x-2.5 transition-all font-bold text-sm cursor-pointer ${
+                      data.gender === 'female'
+                        ? 'bg-primary/10 border-primary text-primary shadow-[0_0_15px_rgba(204,255,0,0.15)] scale-[1.02]'
+                        : 'bg-[#131313] border-[#1c1b1b] text-gray-400 hover:border-gray-600 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-xl">👩</span>
+                    <span>Femenino</span>
+                  </button>
                 </div>
               </div>
               

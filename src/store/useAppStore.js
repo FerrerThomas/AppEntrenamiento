@@ -437,6 +437,7 @@ export const useAppStore = create((set, get) => ({
     weight: 70,
     height: 175,
     birthDate: '',
+    gender: 'male',
     gym: null,
     name: '',
   },

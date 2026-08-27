@@ -266,20 +266,20 @@ export default function WorkoutCreator() {
 
     setIsSaving(true);
     try {
-      let currentWorkoutId = editRoutineId;
+      let currentRoutineId = editRoutineId;
 
       if (editRoutineId) {
         const { error: updateError } = await supabase
-          .from('workouts')
+          .from('routines')
           .update({ title: title.trim() })
           .eq('id', editRoutineId);
 
         if (updateError) throw updateError;
 
-        await supabase.from('routine_exercises').delete().eq('workout_id', editRoutineId);
+        await supabase.from('routine_exercises').delete().eq('routine_id', editRoutineId);
       } else {
-        const { data: newWorkout, error: workoutError } = await supabase
-          .from('workouts')
+        const { data: newRoutine, error: routineError } = await supabase
+          .from('routines')
           .insert({
             user_id: user.id,
             title: title.trim()
@@ -287,12 +287,12 @@ export default function WorkoutCreator() {
           .select()
           .single();
 
-        if (workoutError) throw workoutError;
-        currentWorkoutId = newWorkout.id;
+        if (routineError) throw routineError;
+        currentRoutineId = newRoutine.id;
       }
 
       const routineExercisesToInsert = selectedExercises.map((ex, idx) => ({
-        workout_id: currentWorkoutId,
+        routine_id: currentRoutineId,
         exercise_id: ex.id,
         order_index: idx
       }));
@@ -311,7 +311,7 @@ export default function WorkoutCreator() {
           localEx.sets.forEach((s, sIdx) => {
             setsToInsert.push({
               routine_exercise_id: re.id,
-              set_number: sIdx + 1,
+              set_order: sIdx + 1,
               target_weight_kg: parseFloat(s.weight) || 0,
               target_reps: parseInt(s.reps, 10) || 0
             });
@@ -331,6 +331,7 @@ export default function WorkoutCreator() {
       navigate('/workouts');
     } catch (error) {
       console.error('Error saving routine:', error);
+      alert('Error al guardar la rutina: ' + (error.message || 'Inténtalo de nuevo'));
     } finally {
       setIsSaving(false);
     }

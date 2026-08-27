@@ -81,6 +81,7 @@ export default function Profile() {
     social_link: '',
     weight_kg: '',
     height_cm: '',
+    gender: 'male',
     gym_id: '',
   });
 
@@ -125,6 +126,7 @@ export default function Profile() {
         social_link: userProfile.social_link || '',
         weight_kg: userProfile.weight_kg || '',
         height_cm: userProfile.height_cm || '',
+        gender: userProfile.gender || 'male',
         gym_id: userProfile.gym_id || '',
       });
       setAvatarPreview(userProfile.avatar_url || null);
@@ -199,6 +201,7 @@ export default function Profile() {
         social_link: formData.social_link.trim() || null,
         weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : null,
         height_cm: formData.height_cm ? parseFloat(formData.height_cm) : null,
+        gender: formData.gender || 'male',
         gym_id: formData.gym_id || null,
         avatar_url: avatar_url,
       });
@@ -703,6 +706,37 @@ export default function Profile() {
                       placeholder="tu_usuario"
                       className="w-full bg-[#1c1c1e] border border-surface-2 rounded-xl pl-9 pr-4 py-3 text-white text-base focus:outline-none focus:border-primary"
                     />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Sexo / Género</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, gender: 'male' })}
+                      className={`py-3 rounded-xl border flex items-center justify-center space-x-2 transition-all font-bold text-sm cursor-pointer ${
+                        (formData.gender || 'male') === 'male'
+                          ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                          : 'bg-[#1c1c1e] border-surface-2 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <span>👨</span>
+                      <span>Masculino</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, gender: 'female' })}
+                      className={`py-3 rounded-xl border flex items-center justify-center space-x-2 transition-all font-bold text-sm cursor-pointer ${
+                        formData.gender === 'female'
+                          ? 'bg-primary/10 border-primary text-primary shadow-sm'
+                          : 'bg-[#1c1c1e] border-surface-2 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <span>👩</span>
+                      <span>Femenino</span>
+                    </button>
                   </div>
                 </div>
 
