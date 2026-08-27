@@ -293,29 +293,31 @@ export default function WorkoutCreator() {
       (ex.muscle_group && ex.muscle_group.toLowerCase().trim() === selectedMuscle.toLowerCase().trim());
 
     return matchesSearch && matchesMuscle;
-  });
+   });
 
-  return (
-    <div className="flex flex-col min-h-screen bg-[#0a0a0a] text-white">
-      <header className="flex items-center justify-between p-4 pt-6 border-b border-surface-2 bg-[#0a0a0a] sticky top-0 z-20">
-        <div className="w-24 text-left">
-          <button onClick={() => navigate(-1)} className="text-primary text-[17px] font-medium">
-            Cancelar
-          </button>
-        </div>
-        <h1 className="text-[17px] font-bold flex-1 text-center">{editRoutineId ? 'Editar Rutina' : 'Crear Rutina'}</h1>
-        <div className="w-24 flex justify-end">
-          <button 
-            onClick={handleSaveRoutine}
-            disabled={isSaving || selectedExercises.length === 0}
-            className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors ${selectedExercises.length > 0 ? 'bg-primary text-surface-0' : 'bg-[#2c2c2e] text-gray-500'}`}
-          >
-            {isSaving ? '...' : 'Guardar'}
-          </button>
+   return (
+    <div className="flex flex-col min-h-screen bg-[#0a0a0a] text-white w-full">
+      <header className="border-b border-surface-2 bg-[#0a0a0a] sticky top-0 z-20">
+        <div className="max-w-md w-full mx-auto flex items-center justify-between p-4 pt-6">
+          <div className="w-24 text-left">
+            <button onClick={() => navigate(-1)} className="text-primary text-[17px] font-medium">
+              Cancelar
+            </button>
+          </div>
+          <h1 className="text-[17px] font-bold flex-1 text-center truncate">{editRoutineId ? 'Editar Rutina' : 'Crear Rutina'}</h1>
+          <div className="w-24 flex justify-end">
+            <button 
+              onClick={handleSaveRoutine}
+              disabled={isSaving || selectedExercises.length === 0}
+              className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors ${selectedExercises.length > 0 ? 'bg-primary text-surface-0' : 'bg-[#2c2c2e] text-gray-500'}`}
+            >
+              {isSaving ? '...' : 'Guardar'}
+            </button>
+          </div>
         </div>
       </header>
 
-      <div className="p-4 flex-1 flex flex-col relative">
+      <div className="p-4 flex-1 flex flex-col w-full max-w-md mx-auto relative pb-28">
         <input 
           type="text" 
           placeholder="Nombre de la Rutina"
@@ -328,8 +330,8 @@ export default function WorkoutCreator() {
           {selectedExercises.map((exercise, exerciseIndex) => (
             <div key={exercise.id || exerciseIndex} className="bg-[#1c1c1e] rounded-2xl p-4 border border-surface-2">
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                  <div className="cursor-grab text-gray-500">
+                <div className="flex items-center space-x-3 min-w-0 flex-1">
+                  <div className="cursor-grab text-gray-500 shrink-0">
                     <GripVertical size={20} />
                   </div>
                   {exercise.gif_url ? (
@@ -339,49 +341,55 @@ export default function WorkoutCreator() {
                       <Dumbbell size={20} />
                     </div>
                   )}
-                  <div>
-                    <h3 className="font-semibold text-primary text-[17px]">{exercise.name}</h3>
-                    <p className="text-xs text-gray-400">{exercise.muscle_group || 'General'}</p>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-primary text-[17px] truncate">{exercise.name}</h3>
+                    <p className="text-xs text-gray-400 truncate">{exercise.muscle_group || 'General'}</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => handleRemoveExercise(exerciseIndex)}
-                  className="text-gray-500 hover:text-red-400 p-1"
+                  className="text-gray-500 hover:text-red-400 p-1 shrink-0 ml-2"
                 >
                   <Trash2 size={18} />
                 </button>
               </div>
 
+              {/* Series Table Responsiva en Móvil */}
               <div className="space-y-2">
-                <div className="flex items-center text-xs text-gray-500 font-medium px-2 mb-1">
-                  <span className="w-12 text-center">SERIE</span>
-                  <span className="flex-1 text-center">KG</span>
-                  <span className="flex-1 text-center">REPS</span>
-                  <span className="w-8"></span>
+                <div className="grid grid-cols-[36px_1fr_1fr_32px] gap-2 text-xs text-gray-500 font-medium px-2 mb-1.5 items-center">
+                  <span className="text-center">SERIE</span>
+                  <span className="text-center">KG</span>
+                  <span className="text-center">REPS</span>
+                  <span></span>
                 </div>
 
                 {exercise.sets.map((set, setIndex) => (
-                  <div key={set.id || setIndex} className="flex items-center space-x-2 bg-surface-0/50 p-2 rounded-xl border border-surface-2/30">
-                    <span className="w-12 text-center font-bold text-sm text-gray-400">
+                  <div key={set.id || setIndex} className="grid grid-cols-[36px_1fr_1fr_32px] gap-2 items-center bg-surface-0/50 p-2 rounded-xl border border-surface-2/30">
+                    <span className="text-center font-bold text-sm text-gray-400">
                       {setIndex + 1}
                     </span>
-                    <input 
-                      type="number"
-                      placeholder="0"
-                      value={set.weight}
-                      onChange={e => handleSetChange(exerciseIndex, setIndex, 'weight', e.target.value)}
-                      className="flex-1 bg-[#141416] border border-surface-2/60 rounded-lg py-2 text-center font-bold text-sm text-white focus:outline-none focus:border-primary"
-                    />
-                    <input 
-                      type="number"
-                      placeholder="0"
-                      value={set.reps}
-                      onChange={e => handleSetChange(exerciseIndex, setIndex, 'reps', e.target.value)}
-                      className="flex-1 bg-[#141416] border border-surface-2/60 rounded-lg py-2 text-center font-bold text-sm text-white focus:outline-none focus:border-primary"
-                    />
+                    <div className="min-w-0">
+                      <input 
+                        type="number"
+                        placeholder="0"
+                        value={set.weight}
+                        onChange={e => handleSetChange(exerciseIndex, setIndex, 'weight', e.target.value)}
+                        className="w-full h-10 bg-[#141416] border border-surface-2/60 rounded-lg text-center font-bold text-sm text-white focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <input 
+                        type="number"
+                        placeholder="0"
+                        value={set.reps}
+                        onChange={e => handleSetChange(exerciseIndex, setIndex, 'reps', e.target.value)}
+                        className="w-full h-10 bg-[#141416] border border-surface-2/60 rounded-lg text-center font-bold text-sm text-white focus:outline-none focus:border-primary"
+                      />
+                    </div>
                     <button 
                       onClick={() => handleRemoveSet(exerciseIndex, setIndex)}
-                      className="w-8 text-gray-600 hover:text-red-400 flex justify-center items-center"
+                      className="w-8 h-8 text-gray-600 hover:text-red-400 flex justify-center items-center rounded-lg hover:bg-red-500/10 transition-colors shrink-0"
+                      title="Eliminar serie"
                     >
                       <Trash2 size={15} />
                     </button>
