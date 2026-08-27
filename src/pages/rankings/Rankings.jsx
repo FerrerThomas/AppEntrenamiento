@@ -13,7 +13,7 @@ const timeMapping = {
 
 export default function Rankings() {
   const navigate = useNavigate();
-  const [filter, setFilter] = useState('local'); // 'local' (Mi Gimnasio) or 'global'
+  const [filter, setFilter] = useState('global'); // 'global' or 'local' (Mi Gimnasio)
   const [metric, setMetric] = useState('Total'); // 'Total' (Volumen) or 'RM' (1RM)
   const [time, setTime] = useState('Este Mes');
   
@@ -110,22 +110,6 @@ export default function Rankings() {
           
           <div className="flex bg-[#242426] border border-surface-2 rounded-[14px] p-1 relative">
             <button 
-              onClick={() => setFilter('local')}
-              className={`relative px-4 py-1.5 text-xs font-black rounded-[10px] transition-colors z-10 ${
-                filter === 'local' ? 'text-black font-black' : 'text-gray-400 hover:text-white font-bold'
-              }`}
-            >
-              {filter === 'local' && (
-                <motion.div 
-                  layoutId="filterPill" 
-                  className="absolute inset-0 bg-primary rounded-[10px] shadow-md -z-10"
-                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                />
-              )}
-              Mi Gimnasio
-            </button>
-
-            <button 
               onClick={() => setFilter('global')}
               className={`relative px-4 py-1.5 text-xs font-black rounded-[10px] transition-colors z-10 ${
                 filter === 'global' ? 'text-black font-black' : 'text-gray-400 hover:text-white font-bold'
@@ -139,6 +123,22 @@ export default function Rankings() {
                 />
               )}
               Global
+            </button>
+
+            <button 
+              onClick={() => setFilter('local')}
+              className={`relative px-4 py-1.5 text-xs font-black rounded-[10px] transition-colors z-10 ${
+                filter === 'local' ? 'text-black font-black' : 'text-gray-400 hover:text-white font-bold'
+              }`}
+            >
+              {filter === 'local' && (
+                <motion.div 
+                  layoutId="filterPill" 
+                  className="absolute inset-0 bg-primary rounded-[10px] shadow-md -z-10"
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                />
+              )}
+              Mi Gimnasio
             </button>
           </div>
         </div>
@@ -288,7 +288,23 @@ export default function Rankings() {
         </div>
 
         {/* Content / Rankings Display */}
-        {isRankingLoading ? (
+        {filter === 'local' && !userProfile?.gym_id ? (
+          <div className="bg-[#1c1c1e] border border-surface-2 rounded-3xl p-8 text-center my-4 animate-in fade-in">
+            <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto mb-4 text-primary">
+              <MapPin size={28} />
+            </div>
+            <h4 className="font-bold text-lg text-white mb-2">No tienes un gimnasio asociado</h4>
+            <p className="text-xs text-gray-400 mb-6 leading-relaxed max-w-xs mx-auto">
+              Para competir en la tabla de clasificación de tu sede contra tus compañeros, asocia tu gimnasio en tu perfil.
+            </p>
+            <button
+              onClick={() => navigate('/profile')}
+              className="px-5 py-2.5 rounded-full bg-primary text-black font-bold text-sm shadow-[0_0_15px_rgba(204,255,0,0.3)] hover:opacity-90 transition-all active:scale-95"
+            >
+              Seleccionar mi Gimnasio
+            </button>
+          </div>
+        ) : isRankingLoading ? (
           <div className="flex flex-col justify-center items-center h-52">
             <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary border-t-transparent mb-3"></div>
             <p className="text-gray-400 text-xs font-semibold">Cargando posiciones...</p>
