@@ -156,16 +156,21 @@ export default function ExerciseLibraryModal({
           })
           .eq('id', editingExerciseId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
 
-        if (updated) {
-          setExercises(prev => prev.map(item => item.id === editingExerciseId ? updated : item));
-          setDraftSelected(prev => prev.map(item => item.id === editingExerciseId ? updated : item));
-          if (onExerciseUpdated) onExerciseUpdated(updated);
-          useAppStore.getState().fetchDbExercises(true);
-        }
+        const finalUpdatedObj = updated || {
+          id: editingExerciseId,
+          name: name.trim(),
+          muscle_group: category,
+          gif_url: finalUrl
+        };
+
+        setExercises(prev => prev.map(item => item.id === editingExerciseId ? finalUpdatedObj : item));
+        setDraftSelected(prev => prev.map(item => item.id === editingExerciseId ? finalUpdatedObj : item));
+        if (onExerciseUpdated) onExerciseUpdated(finalUpdatedObj);
+        useAppStore.getState().fetchDbExercises(true);
       } else {
         // Crear ejercicio nuevo
         const { data: created, error } = await supabase
@@ -176,18 +181,23 @@ export default function ExerciseLibraryModal({
             gif_url: finalUrl
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
 
-        if (created) {
-          setExercises(prev => [created, ...prev]);
-          if (mode === 'select') {
-            setDraftSelected(prev => [...prev, created]);
-          }
-          if (onExerciseUpdated) onExerciseUpdated(created);
-          useAppStore.getState().fetchDbExercises(true);
+        const finalCreatedObj = created || {
+          id: String(Date.now()),
+          name: name.trim(),
+          muscle_group: category,
+          gif_url: finalUrl
+        };
+
+        setExercises(prev => [finalCreatedObj, ...prev]);
+        if (mode === 'select') {
+          setDraftSelected(prev => [...prev, finalCreatedObj]);
         }
+        if (onExerciseUpdated) onExerciseUpdated(finalCreatedObj);
+        useAppStore.getState().fetchDbExercises(true);
       }
 
       setIsEditModalOpen(false);
@@ -324,17 +334,19 @@ export default function ExerciseLibraryModal({
                 </div>
               </div>
 
-              {/* Botón Editar y/o Selección */}
+              {/* Botón Editar (solo en mode === 'manage') y/o Selección (solo en mode === 'select') */}
               <div className="flex items-center space-x-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={(e) => handleOpenEdit(ex, e)}
-                  className="px-3 py-1.5 rounded-xl bg-[#242426] hover:bg-primary/20 border border-surface-2 text-gray-300 hover:text-primary transition-all flex items-center space-x-1 text-xs font-bold"
-                  title="Editar nombre, músculo o foto"
-                >
-                  <Pencil size={14} />
-                  <span>Editar</span>
-                </button>
+                {mode === 'manage' && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleOpenEdit(ex, e)}
+                    className="px-3 py-1.5 rounded-xl bg-[#242426] hover:bg-primary/20 border border-surface-2 text-gray-300 hover:text-primary transition-all flex items-center space-x-1 text-xs font-bold"
+                    title="Editar nombre, músculo o foto"
+                  >
+                    <Pencil size={14} />
+                    <span>Editar</span>
+                  </button>
+                )}
 
                 {mode === 'select' && (
                   <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-gray-600'}`}>

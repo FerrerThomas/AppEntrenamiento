@@ -272,14 +272,24 @@ export default function WorkoutCreator() {
     }
   };
 
-  const confirmAddExercises = () => {
-    const newExercises = draftSelected.map(ex => ({
+  const confirmAddExercises = (selectedList) => {
+    const listToAdd = (selectedList && Array.isArray(selectedList) && selectedList.length > 0)
+      ? selectedList
+      : draftSelected;
+
+    if (listToAdd.length === 0) {
+      setShowExerciseModal(false);
+      return;
+    }
+
+    const newExercises = listToAdd.map(ex => ({
       ...ex,
       sets: [
         { id: Math.random().toString(36).substr(2, 9), weight: '', reps: '' }
       ]
     }));
-    setSelectedExercises([...selectedExercises, ...newExercises]);
+
+    setSelectedExercises(prev => [...prev, ...newExercises]);
     setShowExerciseModal(false);
   };
 
@@ -473,27 +483,14 @@ export default function WorkoutCreator() {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-1 shrink-0 ml-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowExerciseModal(true);
-                    }}
-                    className="text-gray-500 hover:text-primary p-1.5 rounded-lg hover:bg-surface-2 transition-colors"
-                    title="Editar datos del ejercicio"
-                  >
-                    <Pencil size={17} />
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveExercise(exerciseIndex)}
-                    className="text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
-                    title="Quitar de la rutina"
-                  >
-                    <Trash2 size={17} />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveExercise(exerciseIndex)}
+                  className="text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors ml-2 shrink-0"
+                  title="Quitar de la rutina"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
 
               {/* Series Table Responsiva en Móvil */}

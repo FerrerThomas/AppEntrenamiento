@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, Check, MoreVertical, Timer, Activity, Trash2 } from 'lucide-react';
+import { ChevronDown, Check, MoreVertical, Timer, Activity, Trash2, Plus, Dumbbell } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { supabase } from '../../lib/supabase';
+import ExerciseLibraryModal from '../../components/workouts/ExerciseLibraryModal';
 
 export default function ActiveWorkout() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export default function ActiveWorkout() {
   const [localPRs, setLocalPRs] = useState({});
   const [isFinishing, setIsFinishing] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
   const [toast, setToast] = useState(null);
@@ -198,6 +200,63 @@ export default function ActiveWorkout() {
       exSets.push(newSet);
       return { ...prev, [rxId]: exSets };
     });
+  };
+
+  const handleAddExercisesToWorkout = async (selectedList) => {
+    if (!selectedList || !Array.isArray(selectedList) || selectedList.length === 0) {
+      setShowAddExerciseModal(false);
+      return;
+    }
+
+    const newRoutineExercises = [];
+    const newSetsData = { ...setsData };
+    const newPrevData = { ...previousData };
+
+    for (const ex of selectedList) {
+      const rxId = `rx_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      const newRx = {
+        id: rxId,
+        exercise_id: ex.id,
+        exercises: {
+          id: ex.id,
+          name: ex.name,
+          muscle_group: ex.muscle_group,
+          gif_url: ex.gif_url
+        },
+        sets: 3,
+        reps: 10
+      };
+      newRoutineExercises.push(newRx);
+
+      newSetsData[rxId] = [
+        { id: Math.random().toString(), kg: '', reps: '', targetKg: 0, targetReps: 10, done: false, isPR: false },
+        { id: Math.random().toString(), kg: '', reps: '', targetReps: 10, targetKg: 0, done: false, isPR: false },
+        { id: Math.random().toString(), kg: '', reps: '', targetReps: 10, targetKg: 0, done: false, isPR: false }
+      ];
+
+      try {
+        const history = await getPreviousWorkout(ex.id);
+        newPrevData[rxId] = history || [];
+      } catch (err) {
+        console.error('Error fetching history for exercise in active workout:', err);
+      }
+    }
+
+    const updatedWorkout = {
+      ...activeWorkout,
+      routine_exercises: [...(activeWorkout.routine_exercises || []), ...newRoutineExercises]
+    };
+
+    useAppStore.setState({ activeWorkout: updatedWorkout });
+    try {
+      localStorage.setItem('ftraining_active_workout', JSON.stringify(updatedWorkout));
+    } catch (e) {
+      console.error('Error saving active workout to localStorage:', e);
+    }
+
+    setSetsData(newSetsData);
+    setPreviousData(newPrevData);
+    setShowAddExerciseModal(false);
   };
 
   const showToast = (title, message, imgUrl) => {
@@ -534,7 +593,50 @@ export default function ActiveWorkout() {
             </div>
           );
         })}
+
+        {/* Estado Vacío si no hay ejercicios cargados (ej: Entrenamiento Libre) */}
+        {exercises.length === 0 && (
+          <div className="bg-[#1c1c1e] rounded-3xl p-8 text-center border border-surface-2/60 my-4 shadow-lg">
+            <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary mb-3">
+              <Dumbbell size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-1">Entrenamiento Libre</h3>
+            <p className="text-xs text-gray-400 max-w-xs mx-auto mb-6">
+              Agrega los ejercicios que vas a realizar en esta sesión para registrar tus series, pesos y récords personales.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowAddExerciseModal(true)}
+              className="w-full py-4 rounded-2xl bg-primary text-surface-0 font-black text-base flex items-center justify-center space-x-2 hover:opacity-90 transition-opacity shadow-[0_0_20px_rgba(204,255,0,0.3)]"
+            >
+              <Plus size={20} strokeWidth={3} />
+              <span>Agregar Primer Ejercicio</span>
+            </button>
+          </div>
+        )}
+
+        {/* Botón flotante/al final para agregar más ejercicios durante el entrenamiento */}
+        {exercises.length > 0 && (
+          <div className="mt-4 mb-10">
+            <button
+              type="button"
+              onClick={() => setShowAddExerciseModal(true)}
+              className="w-full py-4 rounded-2xl bg-[#1c1c1e] hover:bg-[#262629] border border-surface-2 border-dashed flex items-center justify-center space-x-2 text-primary font-bold text-base transition-all shadow-sm active:scale-[0.99]"
+            >
+              <Plus size={20} />
+              <span>Agregar Ejercicio al Entrenamiento</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Modal Selector de Ejercicios para Entrenamiento Activo */}
+      <ExerciseLibraryModal
+        isOpen={showAddExerciseModal}
+        onClose={() => setShowAddExerciseModal(false)}
+        mode="select"
+        onConfirmSelection={handleAddExercisesToWorkout}
+      />
     </div>
   );
 }
