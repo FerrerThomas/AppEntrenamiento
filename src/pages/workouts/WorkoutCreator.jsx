@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
-import { Dumbbell, Search, Info, Check, GripVertical, Trash2, Plus, Upload, X, Camera } from 'lucide-react';
+import { Dumbbell, Search, Info, Check, GripVertical, Trash2, Plus, Upload, X, Camera, Pencil } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/useAppStore';
 
@@ -44,8 +44,9 @@ export default function WorkoutCreator() {
   const [draftSelected, setDraftSelected] = useState([]); // Exercises selected in the modal before adding
   const [isSaving, setIsSaving] = useState(false);
 
-  // Modal state (Crear Nuevo Ejercicio)
+  // Modal state (Crear / Editar Ejercicio)
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingExerciseId, setEditingExerciseId] = useState(null);
   const [newExName, setNewExName] = useState('');
   const [newExCategory, setNewExCategory] = useState('Pecho');
   const [newExFile, setNewExFile] = useState(null);
@@ -60,6 +61,25 @@ export default function WorkoutCreator() {
     };
     fetchExercises();
   }, []);
+
+  const handleOpenCreateModal = () => {
+    setEditingExerciseId(null);
+    setNewExName('');
+    setNewExCategory('Pecho');
+    setNewExFile(null);
+    setNewExPreview(null);
+    setShowCreateModal(true);
+  };
+
+  const handleOpenEditModal = (ex, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    setEditingExerciseId(ex.id);
+    setNewExName(ex.name || '');
+    setNewExCategory(ex.muscle_group || 'Pecho');
+    setNewExFile(null);
+    setNewExPreview(ex.gif_url || null);
+    setShowCreateModal(true);
+  };
 
   const handleImageSelect = (e) => {
     const file = e.target.files?.[0];
@@ -77,15 +97,15 @@ export default function WorkoutCreator() {
     }
   };
 
-  const handleCreateCustomExercise = async (e) => {
+  const handleCreateOrUpdateCustomExercise = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!newExName.trim() || isCreatingExercise) return;
 
     setIsCreatingExercise(true);
     try {
-      let uploadedUrl = null;
+      let uploadedUrl = newExPreview;
 
-      // 1. Subir imagen si se seleccionó archivo
+      // 1. Subir imagen si se seleccionó archivo nuevo
       if (newExFile) {
         const fileExt = newExFile.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
@@ -108,34 +128,66 @@ export default function WorkoutCreator() {
         }
       }
 
-      // 2. Insertar ejercicio en la tabla exercises
-      const { data: newExercise, error: insertError } = await supabase
-        .from('exercises')
-        .insert({
-          name: newExName.trim(),
-          muscle_group: newExCategory,
-          gif_url: uploadedUrl
-        })
-        .select()
-        .single();
+      if (editingExerciseId) {
+        // MODO EDICIÓN: Actualizar el ejercicio existente en la BD
+        const { data: updatedExercise, error: updateError } = await supabase
+          .from('exercises')
+          .update({
+            name: newExName.trim(),
+            muscle_group: newExCategory,
+            gif_url: uploadedUrl
+          })
+          .eq('id', editingExerciseId)
+          .select()
+          .single();
 
-      if (insertError) throw insertError;
+        if (updateError) throw updateError;
 
-      // 3. Actualizar la lista local de ejercicios y seleccionarlo
-      if (newExercise) {
-        setDbExercises(prev => [newExercise, ...prev]);
-        setDraftSelected(prev => [...prev, newExercise]);
+        // Actualizar estado local
+        if (updatedExercise) {
+          setDbExercises(prev => prev.map(item => item.id === editingExerciseId ? updatedExercise : item));
+          setSelectedExercises(prev => prev.map(item => item.id === editingExerciseId ? {
+            ...item,
+            name: updatedExercise.name,
+            muscle_group: updatedExercise.muscle_group,
+            gif_url: updatedExercise.gif_url
+          } : item));
+          setDraftSelected(prev => prev.map(item => item.id === editingExerciseId ? updatedExercise : item));
+          
+          // Actualizar store global
+          useAppStore.getState().fetchDbExercises(true);
+        }
+      } else {
+        // MODO CREACIÓN: Insertar ejercicio nuevo
+        const { data: newExercise, error: insertError } = await supabase
+          .from('exercises')
+          .insert({
+            name: newExName.trim(),
+            muscle_group: newExCategory,
+            gif_url: uploadedUrl
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        if (newExercise) {
+          setDbExercises(prev => [newExercise, ...prev]);
+          setDraftSelected(prev => [...prev, newExercise]);
+          useAppStore.getState().fetchDbExercises(true);
+        }
       }
 
-      // 4. Limpiar estado y cerrar modal de creación
+      // Limpiar estado y cerrar modal
+      setEditingExerciseId(null);
       setNewExName('');
       setNewExCategory('Pecho');
       handleRemoveImage();
       setShowCreateModal(false);
 
     } catch (err) {
-      console.error('Error al crear ejercicio:', err);
-      alert('Error al crear el ejercicio: ' + (err.message || 'Inténtalo de nuevo'));
+      console.error('Error al guardar ejercicio:', err);
+      alert('Error al guardar el ejercicio: ' + (err.message || 'Inténtalo de nuevo'));
     } finally {
       setIsCreatingExercise(false);
     }
@@ -500,7 +552,8 @@ export default function WorkoutCreator() {
             <h2 className="text-[17px] font-bold flex-1 text-center">Agregar Ejercicio</h2>
             <div className="w-24 flex justify-end">
               <button
-                onClick={() => setShowCreateModal(true)}
+                type="button"
+                onClick={handleOpenCreateModal}
                 className="text-primary text-[17px] font-medium hover:opacity-80 transition-opacity"
               >
                 Crear
@@ -577,7 +630,7 @@ export default function WorkoutCreator() {
                   onClick={() => toggleDraftSelection(ex)}
                   className={`px-4 py-3 cursor-pointer flex items-center justify-between border-b border-surface-2 transition-colors ${isSelected ? 'bg-primary/20' : 'hover:bg-[#1c1c1e]'}`}
                 >
-                  <div className="flex items-center space-x-4 min-w-0">
+                  <div className="flex items-center space-x-4 min-w-0 flex-1 mr-2">
                     <div className="relative shrink-0">
                       {ex.gif_url ? (
                         <img src={ex.gif_url} alt={ex.name} className="w-14 h-14 rounded-full object-cover bg-white" />
@@ -588,7 +641,7 @@ export default function WorkoutCreator() {
                       )}
                     </div>
 
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-semibold text-[17px] truncate">{ex.name}</p>
                       <span className="inline-block text-[11px] font-bold text-gray-400 mt-0.5 bg-[#1c1c1e] px-2 py-0.5 rounded-md border border-[#2a2a2c]">
                         {ex.muscle_group || 'General'}
@@ -596,8 +649,19 @@ export default function WorkoutCreator() {
                     </div>
                   </div>
 
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ml-2 transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-gray-600'}`}>
-                    {isSelected && <Check size={14} className="text-surface-0" strokeWidth={3.5} />}
+                  <div className="flex items-center space-x-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => handleOpenEditModal(ex, e)}
+                      className="p-2 rounded-xl text-gray-400 hover:text-primary hover:bg-[#2c2c2e] transition-colors"
+                      title="Editar ejercicio"
+                    >
+                      <Pencil size={16} />
+                    </button>
+
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-gray-600'}`}>
+                      {isSelected && <Check size={14} className="text-surface-0" strokeWidth={3.5} />}
+                    </div>
                   </div>
                 </div>
               );
@@ -632,30 +696,33 @@ export default function WorkoutCreator() {
         </div>
       )}
 
-      {/* Modal Crear Ejercicio Personalizado */}
+      {/* Modal Crear / Editar Ejercicio */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-[#0a0a0a] z-[60] flex flex-col pt-safe animate-in slide-in-from-bottom-full duration-200">
           <header className="flex items-center justify-between p-4 py-3 bg-[#0a0a0a] sticky top-0 z-10 border-b border-surface-2">
             <div className="w-24 text-left">
               <button
+                type="button"
                 onClick={() => setShowCreateModal(false)}
                 className="text-primary text-[17px] font-medium"
               >
                 Cancelar
               </button>
             </div>
-            <h2 className="text-[17px] font-bold flex-1 text-center">Nuevo Ejercicio</h2>
+            <h2 className="text-[17px] font-bold flex-1 text-center">
+              {editingExerciseId ? 'Editar Ejercicio' : 'Nuevo Ejercicio'}
+            </h2>
             <div className="w-24 flex justify-end">
               <button
                 type="button"
-                onClick={handleCreateCustomExercise}
+                onClick={handleCreateOrUpdateCustomExercise}
                 disabled={!newExName.trim() || isCreatingExercise}
                 className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors ${newExName.trim() && !isCreatingExercise
                     ? 'bg-primary text-surface-0 cursor-pointer'
                     : 'bg-[#2c2c2e] text-gray-500'
                   }`}
               >
-                {isCreatingExercise ? 'Guardando...' : 'Guardar'}
+                {isCreatingExercise ? 'Guardando...' : editingExerciseId ? 'Actualizar' : 'Guardar'}
               </button>
             </div>
           </header>

@@ -809,8 +809,8 @@ export const useAppStore = create((set, get) => ({
   },
 
   dbExercises: [],
-  fetchDbExercises: async () => {
-    if (get().dbExercises.length > 0) return; // Already fetched
+  fetchDbExercises: async (force = false) => {
+    if (!force && get().dbExercises.length > 0) return; // Already fetched
     try {
       const { data, error } = await supabase.from('exercises').select('*').order('name');
       if (error) throw error;
