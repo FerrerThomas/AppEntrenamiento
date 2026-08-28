@@ -60,7 +60,8 @@ export default function ActiveWorkout() {
           initialData[rx.id] = setsArray;
         }
 
-        const history = await getPreviousWorkout(rx.exercises.id);
+        const exId = rx.exercises?.id || rx.exercise_id;
+        const history = exId ? await getPreviousWorkout(exId) : [];
         prevData[rx.id] = history;
       });
 
@@ -220,13 +221,15 @@ export default function ActiveWorkout() {
 
         (setsData[rxId] || []).forEach(set => {
           if (set.done) {
-            exercisesDone.add(rx.exercises.name);
+            const exName = rx.exercises?.name || 'Ejercicio';
+            const exId = rx.exercises?.id || rx.exercise_id;
+            exercisesDone.add(exName);
             const kg = parseFloat(set.kg) || 0;
             const reps = parseInt(set.reps) || 0;
             const setVolume = kg * reps;
             const set1RM = kg * (1.0 + (reps / 30.0));
 
-            const prevPR = currentPRs.find(pr => pr.exercise_id === rx.exercises.id);
+            const prevPR = currentPRs.find(pr => pr.exercise_id === exId);
             const maxVol = prevPR ? parseFloat(prevPR.max_volume) : 0;
             const max1rm = prevPR ? parseFloat(prevPR.max_1rm) : 0;
 
@@ -235,12 +238,14 @@ export default function ActiveWorkout() {
             totalVolume += setVolume;
             if (isGenuinePR) prsBroken++;
 
-            setsToInsert.push({
-              exercise_id: rx.exercises.id,
-              weight_kg: kg,
-              reps: reps,
-              is_pr: isGenuinePR
-            });
+            if (exId) {
+              setsToInsert.push({
+                exercise_id: exId,
+                weight_kg: kg,
+                reps: reps,
+                is_pr: isGenuinePR
+              });
+            }
           }
         });
       });
