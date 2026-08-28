@@ -1,7 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Search, Minus, Crown, Dumbbell, X, Trophy, Flame, MapPin } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Search, 
+  Minus, 
+  Crown, 
+  Dumbbell, 
+  X, 
+  Trophy, 
+  Flame, 
+  MapPin, 
+  SlidersHorizontal, 
+  Check, 
+  RotateCcw,
+  Sparkles,
+  Zap
+} from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 const timeMapping = {
@@ -15,7 +29,9 @@ export default function Rankings() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('global'); // 'global' or 'local' (Mi Gimnasio)
   const [metric, setMetric] = useState('Total'); // 'Total' (Volumen) or 'RM' (1RM)
+  const [selectedGender, setSelectedGender] = useState('all'); // 'all' | 'male' | 'female'
   const [time, setTime] = useState('Este Mes');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,12 +71,12 @@ export default function Rankings() {
     if (selectedExercise) {
       // Ranking específico de este ejercicio (Volumen o 1RM)
       const rpcMetric = metric === 'Total' ? 'volume' : '1rm';
-      fetchExerciseRanking(selectedExercise.id, rpcMetric, tf, gymId);
+      fetchExerciseRanking(selectedExercise.id, rpcMetric, tf, gymId, selectedGender);
     } else {
       // Ranking General de todo el entrenamiento
-      fetchVolumeRanking(tf, gymId);
+      fetchVolumeRanking(tf, gymId, selectedGender);
     }
-  }, [filter, metric, time, selectedExercise, userProfile, fetchVolumeRanking, fetchExerciseRanking]);
+  }, [filter, metric, time, selectedExercise, selectedGender, userProfile, fetchVolumeRanking, fetchExerciseRanking]);
 
   // Formateo de podio y lista
   const podium = currentRanking.slice(0, 3).map((u, i) => ({
@@ -143,15 +159,15 @@ export default function Rankings() {
           </div>
         </div>
 
-        {/* Search Bar y Filtro Total/RM Integrados */}
-        <div className="space-y-3 mb-4">
+        {/* Search Bar y Botón de Filtros */}
+        <div className="space-y-2.5 mb-4">
           <div className="flex space-x-2">
             
             {/* Buscador de Ejercicios */}
             <div ref={searchContainerRef} className="flex-1 relative">
               <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500" size={17} />
               <input 
-                type="text"
+                type="text" 
                 placeholder={selectedExercise ? selectedExercise.name : "Buscar ejercicio (ej. Hack, Banca...)"}
                 value={searchQuery}
                 onFocus={() => setIsSearching(true)}
@@ -205,62 +221,85 @@ export default function Rankings() {
               )}
             </div>
 
-            {/* Segmented Selector Total / RM */}
-            <div className="flex bg-[#242426] border border-surface-2 rounded-[14px] p-1 shrink-0 relative">
-              <button 
-                onClick={() => setMetric('Total')}
-                className={`relative px-3.5 py-1 text-xs font-black rounded-[10px] transition-colors z-10 ${
-                  metric === 'Total' ? 'text-black font-black' : 'text-gray-400 hover:text-white font-bold'
-                }`}
-                title="Volumen total acumulado en kg"
-              >
-                {metric === 'Total' && (
-                  <motion.div 
-                    layoutId="metricPill" 
-                    className="absolute inset-0 bg-primary rounded-[10px] shadow-md -z-10"
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  />
-                )}
-                Total
-              </button>
-
-              <button 
-                onClick={() => setMetric('RM')}
-                className={`relative px-3.5 py-1 text-xs font-black rounded-[10px] transition-colors z-10 ${
-                  metric === 'RM' ? 'text-black font-black' : 'text-gray-400 hover:text-white font-bold'
-                }`}
-                title="Récord máximo 1RM estimado"
-              >
-                {metric === 'RM' && (
-                  <motion.div 
-                    layoutId="metricPill" 
-                    className="absolute inset-0 bg-primary rounded-[10px] shadow-md -z-10"
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  />
-                )}
-                RM
-              </button>
-            </div>
+            {/* Botón de Filtros */}
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className={`h-11 px-3.5 rounded-[14px] border flex items-center justify-center space-x-2 transition-all shrink-0 cursor-pointer ${
+                ((selectedGender !== 'all') || metric === 'RM' || selectedExercise)
+                  ? 'bg-primary text-black border-primary font-bold shadow-[0_0_12px_rgba(204,255,0,0.35)]'
+                  : 'bg-[#1c1c1e] text-gray-300 border-surface-2 hover:text-white hover:border-gray-500'
+              }`}
+              title="Filtros avanzados"
+            >
+              <SlidersHorizontal size={18} />
+              {((selectedGender !== 'all' ? 1 : 0) + (metric === 'RM' ? 1 : 0) + (selectedExercise ? 1 : 0)) > 0 && (
+                <span className="w-5 h-5 rounded-full bg-black text-primary text-[10px] font-black flex items-center justify-center -mr-0.5">
+                  {(selectedGender !== 'all' ? 1 : 0) + (metric === 'RM' ? 1 : 0) + (selectedExercise ? 1 : 0)}
+                </span>
+              )}
+            </button>
           </div>
 
-          {/* Badge del ejercicio activo */}
-          {selectedExercise && (
-            <div className="flex items-center justify-between bg-primary/10 border border-primary/40 rounded-[14px] px-3.5 py-2 text-xs">
-              <div className="flex items-center space-x-2 min-w-0 pr-2">
-                <Dumbbell size={15} className="text-primary shrink-0" />
-                <span className="text-primary font-extrabold truncate">
-                  {selectedExercise.name}
-                </span>
-                <span className="text-gray-400 text-[11px] shrink-0 font-medium">
-                  ({metric === 'Total' ? 'Volumen Total' : '1RM Máximo'})
-                </span>
-              </div>
-              <button 
-                onClick={handleClearExercise}
-                className="text-gray-400 hover:text-white font-bold text-[11px] underline shrink-0 cursor-pointer"
-              >
-                Ver General
-              </button>
+          {/* Active Filter Chips (Pills interactivos) */}
+          {(selectedExercise || metric === 'RM' || selectedGender !== 'all') && (
+            <div className="flex flex-wrap gap-1.5 pt-0.5 animate-in fade-in">
+              {/* Chip Ejercicio */}
+              {selectedExercise && (
+                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-primary/15 border border-primary/40 text-primary text-xs font-bold">
+                  <Dumbbell size={13} className="shrink-0" />
+                  <span className="truncate max-w-[140px]">{selectedExercise.name}</span>
+                  <button
+                    onClick={handleClearExercise}
+                    className="p-0.5 hover:text-white ml-0.5 cursor-pointer"
+                    title="Quitar filtro"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+
+              {/* Chip 1RM */}
+              {metric === 'RM' && (
+                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-yellow-500/15 border border-yellow-500/40 text-yellow-400 text-xs font-bold">
+                  <Zap size={13} className="shrink-0" />
+                  <span>Récord 1RM</span>
+                  <button
+                    onClick={() => setMetric('Total')}
+                    className="p-0.5 hover:text-white ml-0.5 cursor-pointer"
+                    title="Quitar filtro"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+
+              {/* Chip Género */}
+              {selectedGender !== 'all' && (
+                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-blue-500/15 border border-blue-500/40 text-blue-400 text-xs font-bold">
+                  <span>{selectedGender === 'male' ? '👨 Hombres' : '👩 Mujeres'}</span>
+                  <button
+                    onClick={() => setSelectedGender('all')}
+                    className="p-0.5 hover:text-white ml-0.5 cursor-pointer"
+                    title="Quitar filtro"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+
+              {/* Botón rápido Limpiar todo si hay > 1 filtro */}
+              {((selectedGender !== 'all' ? 1 : 0) + (metric === 'RM' ? 1 : 0) + (selectedExercise ? 1 : 0)) > 1 && (
+                <button
+                  onClick={() => {
+                    setSelectedExercise(null);
+                    setMetric('Total');
+                    setSelectedGender('all');
+                  }}
+                  className="text-[11px] text-gray-400 hover:text-white underline font-medium self-center px-1 cursor-pointer"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -437,6 +476,200 @@ export default function Rankings() {
           </>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL DE FILTROS AVANZADOS */}
+      {/* ========================================================================= */}
+      <AnimatePresence>
+        {isFilterModalOpen && (
+          <div className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-sm flex flex-col justify-end md:justify-center items-center p-0 md:p-4 animate-in fade-in duration-200">
+            <div className="bg-[#131313] border border-surface-2 w-full max-w-md max-h-[85vh] rounded-t-[32px] md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
+              
+              {/* Modal Header */}
+              <header className="flex items-center justify-between p-5 border-b border-surface-2 bg-[#131313] sticky top-0 z-10">
+                <div className="flex items-center space-x-2">
+                  <SlidersHorizontal size={18} className="text-primary" />
+                  <h2 className="text-lg font-bold text-white">Filtros de Ranking</h2>
+                </div>
+                <button 
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="text-primary text-[16px] font-bold px-2 py-1 rounded-lg hover:bg-primary/10 transition-colors cursor-pointer"
+                >
+                  Listo
+                </button>
+              </header>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                
+                {/* 1. Métrica de Rendimiento */}
+                <div>
+                  <label className="block text-xs font-black text-primary uppercase tracking-wider mb-2.5">
+                    Métrica de Rendimiento
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMetric('Total')}
+                      className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        metric === 'Total'
+                          ? 'bg-primary/10 border-primary text-white shadow-[0_0_15px_rgba(204,255,0,0.15)]'
+                          : 'bg-[#1c1c1e] border-surface-2 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold text-sm text-white">Volumen Total</span>
+                        {metric === 'Total' && <Check size={16} className="text-primary" strokeWidth={3} />}
+                      </div>
+                      <span className="text-[11px] text-gray-400 leading-tight">
+                        Kilos acumulados en el período
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMetric('RM')}
+                      className={`p-3.5 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        metric === 'RM'
+                          ? 'bg-primary/10 border-primary text-white shadow-[0_0_15px_rgba(204,255,0,0.15)]'
+                          : 'bg-[#1c1c1e] border-surface-2 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold text-sm text-white">Récord 1RM</span>
+                        {metric === 'RM' && <Check size={16} className="text-primary" strokeWidth={3} />}
+                      </div>
+                      <span className="text-[11px] text-gray-400 leading-tight">
+                        Mayor peso levantado a 1 repetición
+                      </span>
+                    </button>
+                  </div>
+
+                  {metric === 'RM' && !selectedExercise && (
+                    <div className="mt-3 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs flex items-start space-x-2">
+                      <span className="text-base">⚠️</span>
+                      <p className="leading-tight">
+                        Para calcular el <strong>1RM</strong> debes seleccionar un ejercicio específico en el buscador.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Categoría / Sexo */}
+                <div>
+                  <label className="block text-xs font-black text-primary uppercase tracking-wider mb-2.5">
+                    Categoría / Sexo
+                  </label>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedGender('all')}
+                      className={`py-3 px-2 rounded-xl border font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                        selectedGender === 'all'
+                          ? 'bg-primary text-black border-primary shadow-[0_0_12px_rgba(204,255,0,0.3)]'
+                          : 'bg-[#1c1c1e] border-surface-2 text-gray-300 hover:text-white'
+                      }`}
+                    >
+                      <span>👥</span>
+                      <span>Todos</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedGender('male')}
+                      className={`py-3 px-2 rounded-xl border font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                        selectedGender === 'male'
+                          ? 'bg-primary text-black border-primary shadow-[0_0_12px_rgba(204,255,0,0.3)]'
+                          : 'bg-[#1c1c1e] border-surface-2 text-gray-300 hover:text-white'
+                      }`}
+                    >
+                      <span>👨</span>
+                      <span>Hombres</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedGender('female')}
+                      className={`py-3 px-2 rounded-xl border font-bold text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+                        selectedGender === 'female'
+                          ? 'bg-primary text-black border-primary shadow-[0_0_12px_rgba(204,255,0,0.3)]'
+                          : 'bg-[#1c1c1e] border-surface-2 text-gray-300 hover:text-white'
+                      }`}
+                    >
+                      <span>👩</span>
+                      <span>Mujeres</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Ejercicio Seleccionado */}
+                <div>
+                  <label className="block text-xs font-black text-primary uppercase tracking-wider mb-2.5">
+                    Ejercicio Seleccionado
+                  </label>
+                  {selectedExercise ? (
+                    <div className="p-3.5 rounded-2xl bg-[#1c1c1e] border border-primary/50 flex items-center justify-between">
+                      <div className="flex items-center space-x-3 min-w-0">
+                        {selectedExercise.gif_url ? (
+                          <img src={selectedExercise.gif_url} alt={selectedExercise.name} className="w-10 h-10 rounded-xl object-cover bg-white shrink-0 border border-surface-2" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center text-primary shrink-0">
+                            <Dumbbell size={20} />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-sm text-white truncate">{selectedExercise.name}</h4>
+                          <p className="text-xs text-gray-400">{selectedExercise.muscle_group}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleClearExercise}
+                        className="text-xs text-red-400 font-bold hover:underline ml-3 shrink-0 cursor-pointer"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-[#1c1c1e] border border-surface-2 text-center">
+                      <p className="text-xs text-gray-400 mb-2">
+                        Ranking general activo (todos los ejercicios combinados).
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        Puedes usar el buscador en la pantalla principal para filtrar por un ejercicio específico.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <footer className="p-4 border-t border-surface-2 bg-[#131313] flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedExercise(null);
+                    setMetric('Total');
+                    setSelectedGender('all');
+                  }}
+                  className="flex-1 py-3.5 rounded-2xl bg-[#1c1c1e] border border-surface-2 text-gray-300 font-bold text-sm hover:bg-[#252528] transition-colors cursor-pointer"
+                >
+                  Restablecer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="flex-1 py-3.5 rounded-2xl bg-primary text-black font-extrabold text-sm shadow-[0_0_15px_rgba(204,255,0,0.3)] hover:opacity-90 transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  Aplicar Filtros
+                </button>
+              </footer>
+
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

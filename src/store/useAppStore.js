@@ -726,7 +726,7 @@ export const useAppStore = create((set, get) => ({
   currentRanking: [],
   isRankingLoading: false,
 
-  fetchVolumeRanking: async (timeframe, gymId = null) => {
+  fetchVolumeRanking: async (timeframe, gymId = null, gender = 'all') => {
     set({ isRankingLoading: true });
     try {
       const { data, error } = await supabase.rpc('get_volume_ranking', {
@@ -735,15 +735,28 @@ export const useAppStore = create((set, get) => ({
       });
       if (error) throw error;
       
-      // Enriquecer con datos del usuario (nombre, avatar)
+      // Enriquecer con datos del usuario (nombre, avatar, gender)
       if (data && data.length > 0) {
         const userIds = data.map(d => d.user_id);
-        const { data: usersData } = await supabase.from('users').select('id, username, avatar_url').in('id', userIds);
+        const { data: usersData } = await supabase.from('users').select('id, username, avatar_url, gender').in('id', userIds);
         
-        const enriched = data.map(r => {
+        let enriched = data.map(r => {
           const u = usersData?.find(u => u.id === r.user_id);
-          return { ...r, username: u?.username || 'Usuario', avatar_url: u?.avatar_url };
+          return { 
+            ...r, 
+            username: u?.username || 'Usuario', 
+            avatar_url: u?.avatar_url,
+            gender: u?.gender || 'male'
+          };
         });
+
+        if (gender && gender !== 'all') {
+          enriched = enriched.filter(r => (r.gender || 'male') === gender);
+        }
+
+        // Reasignar posiciones de ranking correlativas
+        enriched = enriched.map((r, i) => ({ ...r, rank_position: i + 1 }));
+
         set({ currentRanking: enriched, isRankingLoading: false });
       } else {
         set({ currentRanking: [], isRankingLoading: false });
@@ -754,7 +767,7 @@ export const useAppStore = create((set, get) => ({
     }
   },
 
-  fetchExerciseRanking: async (exerciseId, metric, timeframe, gymId = null) => {
+  fetchExerciseRanking: async (exerciseId, metric, timeframe, gymId = null, gender = 'all') => {
     set({ isRankingLoading: true });
     try {
       const { data, error } = await supabase.rpc('get_exercise_ranking', {
@@ -767,12 +780,24 @@ export const useAppStore = create((set, get) => ({
 
       if (data && data.length > 0) {
         const userIds = data.map(d => d.user_id);
-        const { data: usersData } = await supabase.from('users').select('id, username, avatar_url').in('id', userIds);
+        const { data: usersData } = await supabase.from('users').select('id, username, avatar_url, gender').in('id', userIds);
         
-        const enriched = data.map(r => {
+        let enriched = data.map(r => {
           const u = usersData?.find(u => u.id === r.user_id);
-          return { ...r, username: u?.username || 'Usuario', avatar_url: u?.avatar_url };
+          return { 
+            ...r, 
+            username: u?.username || 'Usuario', 
+            avatar_url: u?.avatar_url,
+            gender: u?.gender || 'male'
+          };
         });
+
+        if (gender && gender !== 'all') {
+          enriched = enriched.filter(r => (r.gender || 'male') === gender);
+        }
+
+        enriched = enriched.map((r, i) => ({ ...r, rank_position: i + 1 }));
+
         set({ currentRanking: enriched, isRankingLoading: false });
       } else {
         set({ currentRanking: [], isRankingLoading: false });
