@@ -21,7 +21,8 @@ import {
   Trash2,
   Activity,
   Layers,
-  ChevronDown
+  ChevronDown,
+  Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +30,7 @@ import { supabase } from '../../lib/supabase';
 import { calculateLevel } from '../../utils/levelSystem';
 import PrestigeModal from '../../components/common/PrestigeModal';
 import WorkoutDetailModal from '../../components/workouts/WorkoutDetailModal';
+import PWAInstallModal from '../../components/common/PWAInstallModal';
 
 function InstagramIcon({ size = 16, className = "" }) {
   return (
@@ -71,6 +73,7 @@ export default function Profile() {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
+  const [isPWAInstallOpen, setIsPWAInstallOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Form State
@@ -604,10 +607,32 @@ export default function Profile() {
         </div>
       )}
 
+      {/* Botón de Ayuda para Instalar App PWA */}
+      <button 
+        type="button"
+        onClick={() => setIsPWAInstallOpen(true)}
+        className="w-full py-3.5 px-4 rounded-2xl bg-[#1c1c1e] border border-surface-2 hover:border-primary/50 text-left flex items-center justify-between transition-colors mt-2 mb-3 cursor-pointer group"
+      >
+        <div className="flex items-center space-x-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+            <Smartphone size={18} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-white group-hover:text-primary transition-colors">
+              Instalar App en el Celular
+            </h4>
+            <p className="text-[11px] text-gray-400">
+              Guía para agregar a inicio en iPhone o Android
+            </p>
+          </div>
+        </div>
+        <ChevronRight size={16} className="text-gray-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+      </button>
+
       {/* Logout Button */}
       <Button 
         variant="secondary" 
-        className="w-full py-4 text-left justify-start border-red-500/20 bg-red-500/5 hover:bg-red-500/10 mt-2 mb-8" 
+        className="w-full py-4 text-left justify-start border-red-500/20 bg-red-500/5 hover:bg-red-500/10 mb-8" 
         onClick={handleLogout}
       >
         <LogOut size={20} className="mr-3 text-red-400" /> 
@@ -796,6 +821,12 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      {/* Modal Guía de Instalación PWA */}
+      <PWAInstallModal 
+        isOpen={isPWAInstallOpen} 
+        onClose={() => setIsPWAInstallOpen(false)} 
+      />
     </div>
   );
 }

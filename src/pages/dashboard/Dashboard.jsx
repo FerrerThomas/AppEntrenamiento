@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, ArrowRight, Maximize2, Heart, MessageSquare, Trophy, Users, Flame, Shield, Sparkles } from 'lucide-react';
+import { Bell, ArrowRight, Maximize2, Heart, MessageSquare, Trophy, Users, Flame, Shield, Sparkles, Smartphone } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useAppStore } from '../../store/useAppStore';
 import { calculateLevel } from '../../utils/levelSystem';
 import PrestigeModal from '../../components/common/PrestigeModal';
+import PWAInstallModal from '../../components/common/PWAInstallModal';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -23,6 +24,26 @@ export default function Dashboard() {
   const [likes, setLikes] = useState({ 1: 12, 2: 24 });
   const [hasLiked, setHasLiked] = useState({ 1: false, 2: true });
   const [isPrestigeOpen, setIsPrestigeOpen] = useState(false);
+  const [isPWAInstallOpen, setIsPWAInstallOpen] = useState(false);
+
+  useEffect(() => {
+    // Verificar si ya está en modo standalone (PWA ya instalada)
+    const isStandalone = typeof window !== 'undefined' && 
+      (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
+    
+    const hasSeenPrompt = localStorage.getItem('ftraining_pwa_install_prompt_seen');
+
+    if (!isStandalone && !hasSeenPrompt) {
+      const timer = setTimeout(() => {
+        setIsPWAInstallOpen(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleDismissPermanently = () => {
+    localStorage.setItem('ftraining_pwa_install_prompt_seen', 'true');
+  };
 
   useEffect(() => {
     const unsubscribe = subscribeToLiveSocialActivity();
@@ -124,6 +145,31 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Banner discreto para instalar como App si no está instalada */}
+      {typeof window !== 'undefined' && 
+        !(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) && (
+        <div 
+          onClick={() => setIsPWAInstallOpen(true)}
+          className="mb-4 p-3 rounded-2xl bg-gradient-to-r from-primary/15 via-[#1c1c1e] to-[#1c1c1e] border border-primary/30 flex items-center justify-between cursor-pointer hover:border-primary/60 transition-all active:scale-[0.99] group shadow-sm"
+        >
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-primary text-black flex items-center justify-center font-bold shrink-0 shadow-[0_0_10px_rgba(204,255,0,0.3)]">
+              <Smartphone size={18} strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-black text-white group-hover:text-primary transition-colors truncate flex items-center space-x-1.5">
+                <span>Instalar FTraining en tu Celular</span>
+                <span className="px-1.5 py-0.2 bg-primary/20 text-primary border border-primary/30 rounded text-[9px] font-bold">PWA</span>
+              </h4>
+              <p className="text-[10px] text-gray-400 truncate">
+                Toca aquí para ver cómo agregarla a tu pantalla de inicio
+              </p>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-primary group-hover:translate-x-1 transition-transform shrink-0 ml-2" />
+        </div>
+      )}
 
       {/* Modal de Prestigio */}
       <PrestigeModal 
@@ -303,6 +349,13 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Modal de Instrucciones de Instalación PWA */}
+      <PWAInstallModal 
+        isOpen={isPWAInstallOpen} 
+        onClose={() => setIsPWAInstallOpen(false)} 
+        onDismissPermanently={handleDismissPermanently} 
+      />
     </div>
   );
 }
