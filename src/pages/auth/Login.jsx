@@ -141,9 +141,7 @@ export default function Login() {
         transition={{ duration: 0.35 }}
         className="w-full max-w-md mb-6 p-4 rounded-3xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-[#131313] border border-amber-500/30 flex items-start space-x-3.5 shadow-[0_8px_30px_rgba(245,158,11,0.08)] backdrop-blur-sm"
       >
-        <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5 border border-amber-500/30 shadow-inner">
-          <Sparkles size={18} />
-        </div>
+
         <div className="min-w-0 flex-1">
           <div className="flex items-center space-x-2 mb-1">
             <h4 className="font-extrabold text-white text-sm tracking-tight">App en Desarrollo</h4>
@@ -344,7 +342,7 @@ export default function Login() {
         {/* Google OAuth Section (Only in Login & Register) */}
         {mode !== 'forgot' && (
           <>
-            <div className="mt-10 flex items-center w-full">
+            <div className="mt-5 flex items-center w-full">
               <div className="flex-1 border-t border-[#2a2a2a]"></div>
               <span className="px-4 text-[10px] font-black tracking-widest text-gray-400 bg-[#131313]">o</span>
               <div className="flex-1 border-t border-[#2a2a2a]"></div>
@@ -353,7 +351,7 @@ export default function Login() {
             <button
               onClick={handleGoogleLogin}
               type="button"
-              className="w-full mt-10 bg-[#1c1b1b] hover:bg-[#2a2a2a] border border-[#2a2a2a] text-white rounded-2xl h-14 flex items-center justify-center gap-3 transition-colors"
+              className="w-full mt-4 bg-[#1c1b1b] hover:bg-[#2a2a2a] border border-[#2a2a2a] text-white rounded-2xl h-14 flex items-center justify-center gap-3 transition-colors"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
