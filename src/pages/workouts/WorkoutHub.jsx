@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { ChevronDown, Plus, ClipboardList, MoreHorizontal, Edit3, Trash2, X, AlertTriangle, Dumbbell, Play } from 'lucide-react';
+import { ChevronDown, Plus, ClipboardList, MoreHorizontal, Edit3, Trash2, X, AlertTriangle, Dumbbell, Play, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import Button from '../../components/ui/Button';
+import ExerciseLibraryModal from '../../components/workouts/ExerciseLibraryModal';
 
 export default function WorkoutHub() {
   const workouts = useAppStore((state) => state.workouts);
@@ -17,6 +18,7 @@ export default function WorkoutHub() {
   const [selectedRoutineDetail, setSelectedRoutineDetail] = useState(null); // Rutina seleccionada para ver detalles
   const [routineToDelete, setRoutineToDelete] = useState(null); // Rutina pendiente de confirmación de borrado
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExerciseLibraryOpen, setIsExerciseLibraryOpen] = useState(false); // Modal de Biblioteca / Editor de Ejercicios
 
   useEffect(() => {
     fetchWorkouts();
@@ -52,25 +54,29 @@ export default function WorkoutHub() {
           });
           navigate('/workouts/active');
         }}
-        className="w-full flex items-center justify-start py-4 mb-8"
+        className="w-full flex items-center justify-start py-4 mb-6"
         variant="outline"
       >
         <Plus size={20} className="mr-3" />
         <span className="font-bold">Empezar Entrenamiento Vacío</span>
       </Button>
 
-      {/* Rutinas Section */}
-      <div className="mb-4">
-        <h2 className="text-lg font-bold">Rutinas</h2>
-      </div>
-
-      <div className="mb-8">
+      {/* Acciones Rápidas: Nueva Rutina y Biblioteca de Ejercicios */}
+      <div className="grid grid-cols-2 gap-3 mb-8">
         <Button 
           onClick={() => navigate('/workouts/create')}
-          className="w-full py-4 flex flex-row justify-center items-center space-x-2 bg-surface-1 hover:bg-surface-2 text-white border-none"
+          className="py-4 flex flex-row justify-center items-center space-x-2 bg-surface-1 hover:bg-surface-2 text-white border-none rounded-2xl"
         >
-          <ClipboardList size={20} />
-          <span className="font-bold">Nueva Rutina</span>
+          <ClipboardList size={18} />
+          <span className="font-bold text-sm">Nueva Rutina</span>
+        </Button>
+
+        <Button 
+          onClick={() => setIsExerciseLibraryOpen(true)}
+          className="py-4 flex flex-row justify-center items-center space-x-2 bg-[#1c1c1e] hover:bg-[#28282b] border border-surface-2 text-primary rounded-2xl"
+        >
+          <Dumbbell size={18} />
+          <span className="font-bold text-sm">Editar Ejercicios</span>
         </Button>
       </div>
 
@@ -325,6 +331,13 @@ export default function WorkoutHub() {
           </div>
         </div>
       )}
+
+      {/* Modal Biblioteca y Edición de Ejercicios */}
+      <ExerciseLibraryModal
+        isOpen={isExerciseLibraryOpen}
+        onClose={() => setIsExerciseLibraryOpen(false)}
+        mode="manage"
+      />
     </div>
   );
 }
