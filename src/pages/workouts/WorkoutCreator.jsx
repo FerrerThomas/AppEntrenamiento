@@ -135,6 +135,7 @@ export default function WorkoutCreator() {
 
     } catch (err) {
       console.error('Error al crear ejercicio:', err);
+      alert('Error al crear el ejercicio: ' + (err.message || 'Inténtalo de nuevo'));
     } finally {
       setIsCreatingExercise(false);
     }
@@ -646,10 +647,11 @@ export default function WorkoutCreator() {
             <h2 className="text-[17px] font-bold flex-1 text-center">Nuevo Ejercicio</h2>
             <div className="w-24 flex justify-end">
               <button
-                onClick={handleCreateExercise}
+                type="button"
+                onClick={handleCreateCustomExercise}
                 disabled={!newExName.trim() || isCreatingExercise}
                 className={`px-4 py-1.5 rounded-full font-bold text-sm transition-colors ${newExName.trim() && !isCreatingExercise
-                    ? 'bg-primary text-surface-0'
+                    ? 'bg-primary text-surface-0 cursor-pointer'
                     : 'bg-[#2c2c2e] text-gray-500'
                   }`}
               >
